@@ -17,6 +17,7 @@ interface CapitalSimulationProps {
   simulation?: {
     notesMaturing: NoteItem[];
     interestDue: InterestItem[];
+    principalRepayments?: InterestItem[];
     actualDeposits: number;
     actualWithdrawals: number;
     expectedIn: number;
@@ -33,6 +34,7 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
   const {
     notesMaturing,
     interestDue,
+    principalRepayments = [],
     actualDeposits,
     actualWithdrawals,
     expectedIn,
@@ -42,7 +44,12 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
   } = simulation;
 
   const displayDay = selectedDate ? selectedDate.split('-')[2] : '';
-  const hasDetails = notesMaturing.length > 0 || interestDue.length > 0 || actualDeposits > 0 || actualWithdrawals > 0;
+  const hasDetails = 
+    notesMaturing.length > 0 || 
+    interestDue.length > 0 || 
+    principalRepayments.length > 0 || 
+    actualDeposits > 0 || 
+    actualWithdrawals > 0;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
@@ -151,6 +158,17 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
                   <li key={`out-loan-${idx}`} className="py-2 flex justify-between items-center">
                     <span className="text-slate-700">
                       <span className="font-bold text-rose-600 mr-1.5">[이자]</span>
+                      {loan.bank} <span className="text-[9px] text-slate-400">({loan.loanType})</span>
+                    </span>
+                    <span className="font-mono font-bold text-rose-600">-{loan.amount.toLocaleString()}원</span>
+                  </li>
+                ))}
+
+                {/* Principal Repayments */}
+                {principalRepayments.map((loan, idx) => (
+                  <li key={`out-repay-${idx}`} className="py-2 flex justify-between items-center">
+                    <span className="text-slate-700">
+                      <span className="font-bold text-rose-600 mr-1.5">[상환]</span>
                       {loan.bank} <span className="text-[9px] text-slate-400">({loan.loanType})</span>
                     </span>
                     <span className="font-mono font-bold text-rose-600">-{loan.amount.toLocaleString()}원</span>

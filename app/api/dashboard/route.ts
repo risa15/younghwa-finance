@@ -150,6 +150,29 @@ export async function GET(request: NextRequest) {
         amount: loan.monthlyInterest
       }));
 
+    // Active loan principal repayments due on this exact date
+    const principalRepayments = loansRes.data
+      .filter(loan => {
+        if (!loan.repayStartDate || !loan.repayAmount || loan.repayAmount <= 0) return false;
+        const start = parseDateStr(loan.repayStartDate);
+        const due = parseDateStr(loan.dueDate);
+        const reqMonthCompare = new Date(reqDateParsed.getFullYear(), reqDateParsed.getMonth(), 1);
+        const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
+        const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
+        
+        const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
+        return (
+          repayDay === reqDay &&
+          reqMonthCompare >= startCompare &&
+          reqMonthCompare <= dueCompare
+        );
+      })
+      .map(loan => ({
+        bank: loan.bank,
+        loanType: loan.loanType,
+        amount: loan.repayAmount || 0
+      }));
+
     // Actual transaction amounts on this day
     const actualDeposits = todayTransactions
       .filter(t => t.type === '입금')
@@ -161,11 +184,12 @@ export async function GET(request: NextRequest) {
 
     const sumNotesMaturing = notesMaturing.reduce((sum, n) => sum + n.amount, 0);
     const sumInterestDue = interestDue.reduce((sum, i) => sum + i.amount, 0);
+    const sumPrincipalRepayments = principalRepayments.reduce((sum, r) => sum + r.amount, 0);
 
     // Expected inflow = actual deposits + maturing notes (receivables)
     const expectedIn = actualDeposits + sumNotesMaturing;
-    // Expected outflow = actual withdrawals + interest due (payables)
-    const expectedOut = actualWithdrawals + sumInterestDue;
+    // Expected outflow = actual withdrawals + interest due + principal repayments (payables)
+    const expectedOut = actualWithdrawals + sumInterestDue + sumPrincipalRepayments;
 
     const startLiquidAssets = totalLiquidAssets;
     const endLiquidAssets = startLiquidAssets + expectedIn - expectedOut;
@@ -185,6 +209,7 @@ export async function GET(request: NextRequest) {
       simulation: {
         notesMaturing,
         interestDue,
+        principalRepayments, // 신규 추가
         actualDeposits,
         actualWithdrawals,
         expectedIn,

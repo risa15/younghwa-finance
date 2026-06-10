@@ -290,4 +290,58 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
   }
 }
 
+// Helper to parse YYYY-MM-DD to Date object
+function parseDateStr(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// Get number of monthly payments between two dates
+export function getRepaymentsBetween(date1: Date, date2: Date, paymentDay: number): number {
+  if (date1 >= date2) return 0;
+  
+  let count = 0;
+  let current = new Date(date1.getFullYear(), date1.getMonth(), paymentDay);
+  if (current <= date1) {
+    current.setMonth(current.getMonth() + 1);
+  }
+  
+  while (current <= date2) {
+    count++;
+    current.setMonth(current.getMonth() + 1);
+  }
+  
+  return count;
+}
+
+// Calculates remaining loan balance dynamically based on target query date and base data date
+export function calculateDynamicBalance(loan: LoanStatus, queryDateStr: string, baseDateStr: string): number {
+  if (!loan.repayStartDate || !loan.repayAmount || loan.repayAmount <= 0) {
+    return loan.balance;
+  }
+  
+  const queryDate = parseDateStr(queryDateStr);
+  const baseDate = parseDateStr(baseDateStr);
+  const repayStart = parseDateStr(loan.repayStartDate);
+  const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
+  
+  if (queryDate.getTime() === baseDate.getTime()) {
+    return loan.balance;
+  }
+  
+  if (queryDate > baseDate) {
+    const intervalStart = baseDate > repayStart ? baseDate : new Date(repayStart.getTime() - 24 * 60 * 60 * 1000);
+    const repayments = getRepaymentsBetween(intervalStart, queryDate, repayDay);
+    return Math.max(0, loan.balance - repayments * loan.repayAmount);
+  } else {
+    const intervalStart = queryDate > repayStart ? queryDate : new Date(repayStart.getTime() - 24 * 60 * 60 * 1000);
+    if (baseDate < repayStart) {
+      return loan.balance;
+    }
+    const repayments = getRepaymentsBetween(intervalStart, baseDate, repayDay);
+    return Math.min(loan.loanAmount, loan.balance + repayments * loan.repayAmount);
+  }
+}
+
+
 

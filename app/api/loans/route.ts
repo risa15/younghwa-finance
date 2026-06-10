@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchLoans } from '@/lib/sheets';
+import { fetchLoans, fetchAccountBalances, calculateDynamicBalance } from '@/lib/sheets';
 
 // Helper to parse YYYY-MM-DD
 function parseDateStr(dateStr: string): Date {
@@ -12,55 +12,98 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     let referenceDate = searchParams.get('date');
 
-    const { data: loans, isDemo } = await fetchLoans();
+    const [loansRes, balancesRes] = await Promise.all([
+      fetchLoans(),
+      fetchAccountBalances()
+    ]);
 
-    if (!referenceDate) {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      referenceDate = `${yyyy}-${mm}-${dd}`;
+    const { data: rawLoans, isDemo } = loansRes;
+    const { data: balances } = balancesRes;
+
+    // 1. Resolve base reference date (the latest date in the sheet data)
+    let baseDate = '2026-06-10'; // Default fallback
+    if (balances.length > 0) {
+      const dates = balances.map(b => b.date).filter(Boolean);
+      if (dates.length > 0) {
+        baseDate = dates.reduce((max, d) => d > max ? d : max, dates[0]);
+      }
     }
 
-    const refDateObj = parseDateStr(referenceDate);
+    if (!referenceDate) {
+      referenceDate = baseDate;
+    }
+
+    // 2. Map loans to calculate dynamic remaining balance as of the requested date
+    const loans = rawLoans.map(loan => {
+      const dynamicBalance = calculateDynamicBalance(loan, referenceDate!, baseDate);
+      return {
+        ...loan,
+        balance: dynamicBalance
+      };
+    });
+
+    const refDateObj = parseDateStr(referenceDate!);
     const startYear = refDateObj.getFullYear();
     const startMonth = refDateObj.getMonth(); // 0-11
 
-    // Generate interest schedule for the next 3 months (Month 0, Month 1, Month 2)
+    // 3. Generate schedule for the next 3 months (Month 0, Month 1, Month 2)
     const schedule = Array.from({ length: 3 }).map((_, index) => {
-      // Calculate target year and month
       const targetDate = new Date(startYear, startMonth + index, 1);
       const targetYear = targetDate.getFullYear();
       const targetMonth = targetDate.getMonth(); // 0-11
       const targetMonthStr = String(targetMonth + 1).padStart(2, '0');
       
-      const payments = loans
-        .filter(loan => {
-          // Verify if the loan is active during the target month
-          const start = parseDateStr(loan.startDate);
-          const due = parseDateStr(loan.dueDate);
-          const loanStartCompare = new Date(start.getFullYear(), start.getMonth(), 1);
-          const loanDueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
-          
-          return targetDate >= loanStartCompare && targetDate <= loanDueCompare;
-        })
-        .map(loan => ({
+      const payments: any[] = [];
+
+      loans.forEach(loan => {
+        const start = parseDateStr(loan.startDate);
+        const due = parseDateStr(loan.dueDate);
+        const loanStartCompare = new Date(start.getFullYear(), start.getMonth(), 1);
+        const loanDueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
+        
+        // Skip if loan is not active in this month
+        if (targetDate < loanStartCompare || targetDate > loanDueCompare) {
+          return;
+        }
+
+        // Add Interest Payment
+        payments.push({
           loanId: loan.loanId,
           bank: loan.bank,
           loanType: loan.loanType,
           paymentDay: loan.paymentDay,
           amount: loan.monthlyInterest,
-          // Format specific payment date (e.g. "2026-06-15")
+          type: '이자',
           paymentDate: `${targetYear}-${targetMonthStr}-${String(loan.paymentDay).padStart(2, '0')}`
-        }))
-        // Sort by payment day of the month
-        .sort((a, b) => a.paymentDay - b.paymentDay);
+        });
 
+        // Add Principal Repayment (if active)
+        if (loan.repayStartDate && loan.repayAmount && loan.repayAmount > 0) {
+          const repayStart = parseDateStr(loan.repayStartDate);
+          const repayStartCompare = new Date(repayStart.getFullYear(), repayStart.getMonth(), 1);
+          
+          if (targetDate >= repayStartCompare && targetDate <= loanDueCompare) {
+            const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
+            payments.push({
+              loanId: loan.loanId,
+              bank: loan.bank,
+              loanType: loan.loanType,
+              paymentDay: repayDay,
+              amount: loan.repayAmount,
+              type: '원금상환',
+              paymentDate: `${targetYear}-${targetMonthStr}-${String(repayDay).padStart(2, '0')}`
+            });
+          }
+        }
+      });
+
+      // Sort by payment day of the month
+      payments.sort((a, b) => a.paymentDay - b.paymentDay);
       const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
 
       return {
         year: targetYear,
-        month: targetMonth + 1, // 1-12
+        month: targetMonth + 1,
         payments,
         totalAmount
       };
@@ -79,3 +122,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

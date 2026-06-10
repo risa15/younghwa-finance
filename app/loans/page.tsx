@@ -14,6 +14,7 @@ interface LoanSchedulePayment {
   loanType: string;
   paymentDay: number;
   amount: number;
+  type: '이자' | '원금상환';
   paymentDate: string;
 }
 
@@ -273,6 +274,25 @@ export default function LoansPage() {
                       <span className="text-slate-400 font-medium">만기일자</span>
                       <span className="font-mono text-slate-700 font-semibold">{loan.dueDate}</span>
                     </div>
+                    
+                    {loan.repayStartDate && loan.repayAmount && loan.repayAmount > 0 ? (
+                      <div className="border-t border-slate-100 pt-3 mt-3 space-y-2 text-[10px]">
+                        <div className="flex justify-between text-slate-500">
+                          <span>분할상환 시작일</span>
+                          <span className="font-mono">{loan.repayStartDate}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500">
+                          <span>분할상환금액</span>
+                          <span className="font-mono font-semibold text-slate-700">
+                            {loan.repayAmount.toLocaleString('ko-KR')}원 (매월 {loan.repayPaymentDay || loan.paymentDay}일)
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 pt-3 mt-3 text-[10px] text-slate-400 italic">
+                        만기일시상환 (분할상환 없음)
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Footer Info */}
@@ -299,7 +319,7 @@ export default function LoansPage() {
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
             <h3 className="text-sm font-semibold text-slate-800 tracking-wide">
-              향후 3개월 이자 납부 계획
+              향후 3개월 상환 및 이자 납부 계획
             </h3>
             <span className="text-[10px] text-slate-400 font-medium font-mono">선택 기준월로부터 3개월 집계</span>
           </div>
@@ -314,7 +334,7 @@ export default function LoansPage() {
                 {/* Month header */}
                 <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
                   <span className="text-xs font-bold text-slate-700 tracking-wider">
-                    {monthData.year}년 {String(monthData.month).padStart(2, '0')}월 이자
+                    {monthData.year}년 {String(monthData.month).padStart(2, '0')}월 상환/이자
                   </span>
                   <span className="font-mono text-xs font-extrabold text-brand-rose">
                     {monthData.totalAmount.toLocaleString('ko-KR')}원
@@ -330,7 +350,16 @@ export default function LoansPage() {
                         className="flex justify-between items-center text-xs p-2.5 rounded bg-slate-50 border border-slate-100 hover:bg-slate-100/60 transition-colors"
                       >
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800">{pmt.bank}</span>
+                          <span className="font-semibold text-slate-800">
+                            {pmt.bank}
+                            <span className={`ml-1.5 px-1 py-0.5 rounded text-[8px] font-bold ${
+                              pmt.type === '원금상환' 
+                                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                                : 'bg-rose-50 text-rose-600 border border-rose-100'
+                            }`}>
+                              {pmt.type}
+                            </span>
+                          </span>
                           <span className="text-[9px] text-slate-500 font-mono leading-tight">{pmt.loanType}</span>
                         </div>
                         <div className="flex flex-col items-end">
@@ -341,7 +370,7 @@ export default function LoansPage() {
                     ))
                   ) : (
                     <div className="h-20 flex items-center justify-center text-[11px] text-slate-500">
-                      예정된 이자 납부 건이 없습니다.
+                      예정된 상환 및 이자 납부 건이 없습니다.
                     </div>
                   )}
                 </div>
@@ -357,8 +386,8 @@ export default function LoansPage() {
           {/* Combined Schedule Info Note */}
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-2.5 items-start">
             <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-              본 스케줄러는 각 대출 계좌의 월 이자 및 실행/만기일자에 근거하여 산출된 가상 이자 지급액 타임라인입니다. 
-              금리 변동 및 원금 중도 상환 등의 사유로 실제 청구되는 이자 금액과는 차이가 있을 수 있으므로 자금 운용 시 참고용으로 활용하시기 바랍니다.
+              본 스케줄러는 각 대출 계좌의 월 이자, 원금 분할상환 금액 및 실행/만기일자에 근거하여 산출된 가상 지급액 타임라인입니다. 
+              금리 변동 및 원금 중도 상환 등의 사유로 실제 청구되는 금액과는 차이가 있을 수 있으므로 자금 운용 시 참고용으로 활용하시기 바랍니다.
             </p>
           </div>
         </div>

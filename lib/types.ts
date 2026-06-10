@@ -76,6 +76,7 @@ export interface DashboardData {
   simulation?: {
     notesMaturing: Array<{ client: string; type: string; amount: number }>;
     interestDue: Array<{ bank: string; loanType: string; amount: number }>;
+    principalRepayments?: Array<{ bank: string; loanType: string; amount: number }>;
     actualDeposits: number;
     actualWithdrawals: number;
     expectedIn: number;
