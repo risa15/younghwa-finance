@@ -188,7 +188,7 @@ export default function DashboardPage() {
             value={data?.kpis.totalLiquidAssets || 0}
             icon={Wallet}
             color="amber"
-            description="보통예금 + 특정예금 + 현금"
+            description="예금 및 현금"
           />
           <KPICard 
             title="현금 잔액"
