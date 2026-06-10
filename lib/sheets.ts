@@ -146,7 +146,7 @@ export async function fetchCashTransactions(): Promise<{ data: CashTransaction[]
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '현금입출금!A2:E',
+      range: '현금입출금!A2:G',
     });
 
     const rows = response.data.values;
@@ -158,10 +158,12 @@ export async function fetchCashTransactions(): Promise<{ data: CashTransaction[]
       .filter(row => row[0] && /^\d{4}-\d{2}-\d{2}$/.test(row[0].trim()))
       .map((row): CashTransaction => ({
         date: row[0].trim(),
-        client: row[1] || '',
-        type: (row[2] === '출금' ? '출금' : '입금') as '입금' | '출금',
-        amount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
-        memo: row[4] || '',
+        account: row[1] || '',
+        client: row[2] || '', // C열 (내역)
+        type: (row[3] === '출금' ? '출금' : '입금') as '입금' | '출금', // D열 (구분)
+        amount: parseInt((row[4] || '0').replace(/,/g, ''), 10) || 0, // E열 (금액)
+        category: row[5] || '', // F열 (카테고리)
+        memo: row[6] || '', // G열 (메모)
       }));
 
     return { data, isDemo: false };
@@ -180,7 +182,7 @@ export async function fetchAccountBalances(): Promise<{ data: AccountBalance[]; 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '계좌잔액!A2:D',
+      range: '계좌잔액!A2:G',
     });
 
     const rows = response.data.values;
@@ -194,7 +196,10 @@ export async function fetchAccountBalances(): Promise<{ data: AccountBalance[]; 
         date: row[0].trim(),
         type: (row[1] || '보통예금').trim() as '보통예금' | '특정예금' | '현금',
         accountName: row[2] || '',
-        balance: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+        todayDeposit: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+        todayWithdrawal: parseInt((row[4] || '0').replace(/,/g, ''), 10) || 0,
+        balance: parseInt((row[5] || '0').replace(/,/g, ''), 10) || 0, // F열 (잔액)
+        remarks: row[6] || '', // G열 (비고)
       }));
 
     return { data, isDemo: false };
@@ -213,7 +218,7 @@ export async function fetchNoteBonds(): Promise<{ data: NoteBond[]; isDemo: bool
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '어음채권!A2:G',
+      range: '어음채권!A2:I',
     });
 
     const rows = response.data.values;
@@ -231,6 +236,8 @@ export async function fetchNoteBonds(): Promise<{ data: NoteBond[]; isDemo: bool
         dueDate: row[4] || '',
         amount: parseInt((row[5] || '0').replace(/,/g, ''), 10) || 0,
         status: (row[6] === '결제완료' ? '결제완료' : '미결제') as '미결제' | '결제완료',
+        settledDate: row[7] || '', // H열 (결제일)
+        remarks: row[8] || '', // I열 (비고)
       }));
 
     return { data, isDemo: false };
@@ -249,7 +256,7 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '대출현황!A2:K',
+      range: '대출현황!A2:N',
     });
 
     const rows = response.data.values;
@@ -270,7 +277,10 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
         dueDate: row[7] || '',
         paymentDay: parseInt(row[8] || '0', 10) || 1,
         monthlyInterest: parseInt((row[9] || '0').replace(/,/g, ''), 10) || 0,
-        memo: row[10] || '',
+        repayStartDate: row[10] || '', // K열 (상환시작일)
+        repayPaymentDay: parseInt(row[11] || '0', 10) || 0, // L열 (상환납부일)
+        repayAmount: parseInt((row[12] || '0').replace(/,/g, ''), 10) || 0, // M열 (상환금액)
+        memo: row[13] || '', // N열 (비고)
       }));
 
     return { data, isDemo: false };
@@ -279,4 +289,5 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
     return { data: MOCK_LOANS, isDemo: true };
   }
 }
+
 

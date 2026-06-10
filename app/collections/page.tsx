@@ -218,8 +218,9 @@ export default function CollectionsPage() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
                   <th className="px-6 py-3">날짜</th>
-                  <th className="px-6 py-3">거래처</th>
-                  <th className="px-6 py-3">적요/메모</th>
+                  <th className="px-6 py-3">거래내용</th>
+                  <th className="px-6 py-3">카테고리</th>
+                  <th className="px-6 py-3">메모</th>
                   <th className="px-6 py-3 text-right">금액</th>
                 </tr>
               </thead>
@@ -229,6 +230,15 @@ export default function CollectionsPage() {
                     <tr key={`${col.client}-${col.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
                       <td className="px-6 py-3.5 font-mono text-slate-500">{col.date}</td>
                       <td className="px-6 py-3.5 text-slate-800 font-bold">{col.client}</td>
+                      <td className="px-6 py-3.5">
+                        {col.category ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 animate-pulse-subtle">
+                            {col.category}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-3.5 text-slate-500 font-medium">{col.memo || '-'}</td>
                       <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
                         {col.amount.toLocaleString('ko-KR')} 원
@@ -237,7 +247,7 @@ export default function CollectionsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={4}>
+                    <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={5}>
                       지정된 일자에 등록된 수금(입금) 내역이 없습니다.
                     </td>
                   </tr>

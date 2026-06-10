@@ -34,7 +34,7 @@ function parseDateStr(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
-// Automated expense classification helper
+// Automated expense classification helper (fallback)
 function getExpenseCategory(client: string, memo: string = ''): string {
   const target = `${client} ${memo}`.toLowerCase();
   
@@ -64,6 +64,27 @@ function getExpenseCategory(client: string, memo: string = ''): string {
     return '매입·원재료비';
   }
   if (target.includes('이자') || target.includes('금융') || target.includes('수수료') || target.includes('대출이자')) {
+    return '금융·이자비용';
+  }
+  return '일반관리·기타';
+}
+
+// Map Google Sheets Category to Visual Categories
+function mapSheetCategory(sheetCat?: string, client: string = '', memo: string = ''): string {
+  if (!sheetCat) {
+    return getExpenseCategory(client, memo);
+  }
+  const cat = sheetCat.trim();
+  if (cat.includes('급여') || cat.includes('인건비') || cat.includes('상여금')) {
+    return '인건비·급여';
+  }
+  if (cat.includes('원자재') || cat.includes('매입') || cat.includes('스틸')) {
+    return '매입·원재료비';
+  }
+  if (cat.includes('세금') || cat.includes('공과금') || cat.includes('보험')) {
+    return '세금·공과금';
+  }
+  if (cat.includes('이자') || cat.includes('금융') || cat.includes('수수료') || cat.includes('대출')) {
     return '금융·이자비용';
   }
   return '일반관리·기타';
@@ -140,9 +161,10 @@ export default function ExpensesPage() {
   const classifiedExpenses = useMemo(() => {
     return filteredExpenses.map(item => ({
       ...item,
-      category: getExpenseCategory(item.client, item.memo)
+      category: mapSheetCategory(item.category, item.client, item.memo)
     }));
   }, [filteredExpenses]);
+
 
   // Sum of filtered expenses
   const totalAmount = useMemo(() => {

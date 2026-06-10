@@ -3,9 +3,11 @@
 // 탭 1: 현금입출금
 export interface CashTransaction {
   date: string;       // YYYY-MM-DD
-  client: string;     // 거래처
+  account?: string;   // 계좌명 (신규 추가)
+  client: string;     // 내역 (거래처)
   type: '입금' | '출금'; // 구분
   amount: number;     // 금액 (원 단위)
+  category?: string;  // 카테고리 (신규 추가)
   memo?: string;      // 메모
 }
 
@@ -14,7 +16,10 @@ export interface AccountBalance {
   date: string;       // YYYY-MM-DD
   type: '보통예금' | '특정예금' | '현금'; // 계좌구분
   accountName: string; // 계좌명 (예: 기업은행(MMT))
+  todayDeposit?: number;    // 금일입금액 (신규 추가)
+  todayWithdrawal?: number; // 금일지출액 (신규 추가)
   balance: number;    // 잔액 (원 단위)
+  remarks?: string;   // 비고 (신규 추가)
 }
 
 // 탭 3: 어음채권
@@ -26,6 +31,8 @@ export interface NoteBond {
   dueDate: string;    // 만기일 (YYYY-MM-DD)
   amount: number;     // 금액 (원 단위)
   status: '미결제' | '결제완료'; // 상태
+  settledDate?: string; // 결제일 (신규 추가)
+  remarks?: string;     // 비고 (신규 추가)
 }
 
 // 탭 4: 대출현황
@@ -40,7 +47,10 @@ export interface LoanStatus {
   dueDate: string;     // 만기일 (YYYY-MM-DD)
   paymentDay: number;  // 이자납부일 (일)
   monthlyInterest: number; // 월 이자 (원 단위)
-  memo?: string;       // 비고
+  repayStartDate?: string;  // 상환시작일 (신규 추가)
+  repayPaymentDay?: number; // 상환납부일 (신규 추가)
+  repayAmount?: number;     // 상환금액 (신규 추가)
+  memo?: string;       // 비고 (N열 매핑)
 }
 
 // 대시보드 API 응답 데이터 통합 구조
