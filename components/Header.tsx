@@ -10,6 +10,21 @@ interface HeaderProps {
 export default function Header({ isDemo = false }: HeaderProps) {
   const pathname = usePathname();
 
+  if (pathname === '/login') {
+    return null;
+  }
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        window.location.href = '/login';
+      }
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   const menuItems = [
     { name: '대시보드', href: '/' },
     { name: '수금 현황', href: '/collections' },
@@ -53,16 +68,23 @@ export default function Header({ isDemo = false }: HeaderProps) {
           })}
         </nav>
 
-        {/* Demo Mode Badge */}
-        <div className="flex items-center gap-3">
+        {/* Right section: Demo Mode Badge & Logout */}
+        <div className="flex items-center gap-4">
           {isDemo && (
             <div className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
               <span className="text-[10px] font-bold text-amber-600">가상 데모 모드</span>
             </div>
           )}
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1.5 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-950 transition-colors cursor-pointer"
+          >
+            로그아웃
+          </button>
         </div>
 
       </div>
     </header>
   );
 }
+
