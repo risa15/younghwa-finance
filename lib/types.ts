@@ -1,0 +1,76 @@
+// 영화포장 자금운용 시스템 데이터 타입 정의
+
+// 탭 1: 현금입출금
+export interface CashTransaction {
+  date: string;       // YYYY-MM-DD
+  client: string;     // 거래처
+  type: '입금' | '출금'; // 구분
+  amount: number;     // 금액 (원 단위)
+  memo?: string;      // 메모
+}
+
+// 탭 2: 계좌잔액
+export interface AccountBalance {
+  date: string;       // YYYY-MM-DD
+  type: '보통예금' | '특정예금' | '현금'; // 계좌구분
+  accountName: string; // 계좌명 (예: 기업은행(MMT))
+  balance: number;    // 잔액 (원 단위)
+}
+
+// 탭 3: 어음채권
+export interface NoteBond {
+  regDate: string;    // 등록일 (YYYY-MM-DD)
+  type: '전자어음' | '종이어음' | '기업채권' | '외담대'; // 구분
+  issuer: string;     // 발행인 (예: 아그니코리아㈜)
+  realClient: string; // 실거래처 (예: 주식회사 무경)
+  dueDate: string;    // 만기일 (YYYY-MM-DD)
+  amount: number;     // 금액 (원 단위)
+  status: '미결제' | '결제완료'; // 상태
+}
+
+// 탭 4: 대출현황
+export interface LoanStatus {
+  loanId: string;      // 대출ID
+  bank: string;        // 금융기관
+  loanType: string;    // 대출종류 (시설자금/운전자금/외담대 등)
+  loanAmount: number;  // 대출금액 (원 단위)
+  balance: number;     // 현재 잔액 (원 단위)
+  interestRate: number; // 금리 (%)
+  startDate: string;   // 실행일 (YYYY-MM-DD)
+  dueDate: string;     // 만기일 (YYYY-MM-DD)
+  paymentDay: number;  // 이자납부일 (일)
+  monthlyInterest: number; // 월 이자 (원 단위)
+  memo?: string;       // 비고
+}
+
+// 대시보드 API 응답 데이터 통합 구조
+export interface DashboardData {
+  selectedDate: string;
+  maxAvailableDate: string;
+  isDemo: boolean;
+  kpis: {
+    todayCollection: number;      // 당일 수금액
+    todayExpense: number;         // 당일 지출액
+    totalLiquidAssets: number;    // 보통예금 + 특정예금 + 현금 합계
+    cashBalance: number;          // 현금 잔액
+  };
+  upcomingAlerts: Array<{
+    id: string;
+    type: string;
+    client: string;
+    amount: number;
+    dueDate: string;
+    daysLeft: number;
+  }>;
+  accounts: AccountBalance[];
+  simulation?: {
+    notesMaturing: Array<{ client: string; type: string; amount: number }>;
+    interestDue: Array<{ bank: string; loanType: string; amount: number }>;
+    actualDeposits: number;
+    actualWithdrawals: number;
+    expectedIn: number;
+    expectedOut: number;
+    startLiquidAssets: number;
+    endLiquidAssets: number;
+  };
+}

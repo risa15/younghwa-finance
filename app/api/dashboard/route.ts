@@ -1,0 +1,205 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds, fetchLoans } from '@/lib/sheets';
+import { AccountBalance, DashboardData } from '@/lib/types';
+
+// Simple helper to parse YYYY-MM-DD to a Date object at midnight local time
+function parseDateStr(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// Get day difference between two dates (d1 - d2)
+function getDaysDifference(dateStr1: string, dateStr2: string): number {
+  const d1 = parseDateStr(dateStr1);
+  const d2 = parseDateStr(dateStr2);
+  const diffTime = d1.getTime() - d2.getTime();
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// Get format string from Date
+function formatDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    let requestedDate = searchParams.get('date');
+
+    const [balancesRes, transactionsRes, notesRes, loansRes] = await Promise.all([
+      fetchAccountBalances(),
+      fetchCashTransactions(),
+      fetchNoteBonds(),
+      fetchLoans()
+    ]);
+
+    const isDemo = balancesRes.isDemo || transactionsRes.isDemo || notesRes.isDemo || loansRes.isDemo;
+
+    // 1. Find the maximum available date in the balances sheet
+    let maxAvailableDate = '2026-06-10'; // Default fallback
+    if (balancesRes.data.length > 0) {
+      const dates = balancesRes.data.map(b => b.date).filter(Boolean);
+      if (dates.length > 0) {
+        maxAvailableDate = dates.reduce((max, d) => d > max ? d : max, dates[0]);
+      }
+    }
+
+    // If no date was requested, use today's date (or maxAvailableDate if today exceeds data range in demo)
+    if (!requestedDate) {
+      const todayStr = formatDate(new Date());
+      // In demo mode, since today might be far in the future compared to demo data (which is 2026-06-10),
+      // we default to the maximum available date in the dataset to show real data.
+      requestedDate = isDemo ? maxAvailableDate : todayStr;
+    }
+
+    // 2. Resolve target balance date: find the closest date in AccountBalance that is <= requestedDate
+    const availableBalanceDates = Array.from(new Set(balancesRes.data.map(b => b.date))).sort();
+    let balanceDate = '';
+    
+    if (availableBalanceDates.includes(requestedDate)) {
+      balanceDate = requestedDate;
+    } else {
+      // Find the latest date that is <= requestedDate
+      const pastDates = availableBalanceDates.filter(d => d <= requestedDate!);
+      if (pastDates.length > 0) {
+        balanceDate = pastDates[pastDates.length - 1];
+      } else if (availableBalanceDates.length > 0) {
+        // If all available dates are in the future, fallback to the earliest date
+        balanceDate = availableBalanceDates[0];
+      }
+    }
+
+    // 3. Filter balances for the resolved balance date
+    const selectedBalances = balancesRes.data.filter(b => b.date === balanceDate);
+
+    // 4. Calculate KPI metrics
+    // 당일 수금액 (Deposits on the exact requested date)
+    const todayTransactions = transactionsRes.data.filter(t => t.date === requestedDate);
+    const todayCollection = todayTransactions
+      .filter(t => t.type === '입금')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // 당일 지출액 (Withdrawals on the exact requested date)
+    const todayExpense = todayTransactions
+      .filter(t => t.type === '출금')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // 총 유동자산 (보통예금 + 특정예금 + 현금 잔액 on balanceDate)
+    const totalLiquidAssets = selectedBalances
+      .filter(b => b.type === '보통예금' || b.type === '특정예금' || b.type === '현금')
+      .reduce((sum, b) => sum + b.balance, 0);
+
+    // 현금 잔액 (on balanceDate)
+    const cashBalance = selectedBalances
+      .filter(b => b.type === '현금')
+      .reduce((sum, b) => sum + b.balance, 0);
+
+    // 5. Calculate upcoming notes and bonds alerts relative to requestedDate (D-7 or less)
+    const upcomingAlerts = notesRes.data
+      .filter(n => n.status === '미결제')
+      .map(n => {
+        const daysLeft = getDaysDifference(n.dueDate, requestedDate!);
+        return {
+          id: `${n.issuer}-${n.dueDate}-${n.amount}`,
+          type: n.type,
+          client: n.issuer,
+          amount: n.amount,
+          dueDate: n.dueDate,
+          daysLeft
+        };
+      })
+      // Filter for upcoming payments within 7 days, and not already expired far in the past (e.g. within -30 to 7 days)
+      // or we can show all unpaid items that are due soon, including those recently overdue (e.g., daysLeft >= 0)
+      .filter(n => n.daysLeft >= 0 && n.daysLeft <= 7)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+
+    // 6. Calculate daily capital simulation for requestedDate
+    const reqDateParsed = parseDateStr(requestedDate!);
+    const reqDay = reqDateParsed.getDate();
+
+    // Notes reaching maturity on this exact date
+    const notesMaturing = notesRes.data
+      .filter(n => n.status === '미결제' && n.dueDate === requestedDate)
+      .map(n => ({
+        client: n.issuer,
+        type: n.type,
+        amount: n.amount
+      }));
+
+    // Active loan interests due on this exact date
+    const interestDue = loansRes.data
+      .filter(loan => {
+        const start = parseDateStr(loan.startDate);
+        const due = parseDateStr(loan.dueDate);
+        const reqMonthCompare = new Date(reqDateParsed.getFullYear(), reqDateParsed.getMonth(), 1);
+        const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
+        const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
+        
+        return (
+          loan.paymentDay === reqDay &&
+          reqMonthCompare >= startCompare &&
+          reqMonthCompare <= dueCompare
+        );
+      })
+      .map(loan => ({
+        bank: loan.bank,
+        loanType: loan.loanType,
+        amount: loan.monthlyInterest
+      }));
+
+    // Actual transaction amounts on this day
+    const actualDeposits = todayTransactions
+      .filter(t => t.type === '입금')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const actualWithdrawals = todayTransactions
+      .filter(t => t.type === '출금')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const sumNotesMaturing = notesMaturing.reduce((sum, n) => sum + n.amount, 0);
+    const sumInterestDue = interestDue.reduce((sum, i) => sum + i.amount, 0);
+
+    // Expected inflow = actual deposits + maturing notes (receivables)
+    const expectedIn = actualDeposits + sumNotesMaturing;
+    // Expected outflow = actual withdrawals + interest due (payables)
+    const expectedOut = actualWithdrawals + sumInterestDue;
+
+    const startLiquidAssets = totalLiquidAssets;
+    const endLiquidAssets = startLiquidAssets + expectedIn - expectedOut;
+
+    const dashboardData: DashboardData = {
+      selectedDate: requestedDate,
+      maxAvailableDate,
+      isDemo,
+      kpis: {
+        todayCollection,
+        todayExpense,
+        totalLiquidAssets,
+        cashBalance
+      },
+      upcomingAlerts,
+      accounts: selectedBalances,
+      simulation: {
+        notesMaturing,
+        interestDue,
+        actualDeposits,
+        actualWithdrawals,
+        expectedIn,
+        expectedOut,
+        startLiquidAssets,
+        endLiquidAssets
+      }
+    };
+
+    return NextResponse.json(dashboardData);
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
