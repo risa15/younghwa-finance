@@ -154,13 +154,15 @@ export async function fetchCashTransactions(): Promise<{ data: CashTransaction[]
       return { data: [], isDemo: false };
     }
 
-    const data = rows.map((row): CashTransaction => ({
-      date: row[0] || '',
-      client: row[1] || '',
-      type: (row[2] === '출금' ? '출금' : '입금') as '입금' | '출금',
-      amount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
-      memo: row[4] || '',
-    }));
+    const data = rows
+      .filter(row => row[0] && /^\d{4}-\d{2}-\d{2}$/.test(row[0].trim()))
+      .map((row): CashTransaction => ({
+        date: row[0].trim(),
+        client: row[1] || '',
+        type: (row[2] === '출금' ? '출금' : '입금') as '입금' | '출금',
+        amount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+        memo: row[4] || '',
+      }));
 
     return { data, isDemo: false };
   } catch (err) {
@@ -186,12 +188,14 @@ export async function fetchAccountBalances(): Promise<{ data: AccountBalance[]; 
       return { data: [], isDemo: false };
     }
 
-    const data = rows.map((row): AccountBalance => ({
-      date: row[0] || '',
-      type: (row[1] || '보통예금') as '보통예금' | '특정예금' | '현금',
-      accountName: row[2] || '',
-      balance: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
-    }));
+    const data = rows
+      .filter(row => row[0] && /^\d{4}-\d{2}-\d{2}$/.test(row[0].trim()))
+      .map((row): AccountBalance => ({
+        date: row[0].trim(),
+        type: (row[1] || '보통예금').trim() as '보통예금' | '특정예금' | '현금',
+        accountName: row[2] || '',
+        balance: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+      }));
 
     return { data, isDemo: false };
   } catch (err) {
@@ -217,15 +221,17 @@ export async function fetchNoteBonds(): Promise<{ data: NoteBond[]; isDemo: bool
       return { data: [], isDemo: false };
     }
 
-    const data = rows.map((row): NoteBond => ({
-      regDate: row[0] || '',
-      type: (row[1] || '전자어음') as '전자어음' | '종이어음' | '기업채권' | '외담대',
-      issuer: row[2] || '',
-      realClient: row[3] || '',
-      dueDate: row[4] || '',
-      amount: parseInt((row[5] || '0').replace(/,/g, ''), 10) || 0,
-      status: (row[6] === '결제완료' ? '결제완료' : '미결제') as '미결제' | '결제완료',
-    }));
+    const data = rows
+      .filter(row => row[0] && /^\d{4}-\d{2}-\d{2}$/.test(row[0].trim()))
+      .map((row): NoteBond => ({
+        regDate: row[0].trim(),
+        type: (row[1] || '전자어음').trim() as '전자어음' | '종이어음' | '기업채권' | '외담대',
+        issuer: row[2] || '',
+        realClient: row[3] || '',
+        dueDate: row[4] || '',
+        amount: parseInt((row[5] || '0').replace(/,/g, ''), 10) || 0,
+        status: (row[6] === '결제완료' ? '결제완료' : '미결제') as '미결제' | '결제완료',
+      }));
 
     return { data, isDemo: false };
   } catch (err) {
@@ -251,19 +257,21 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
       return { data: [], isDemo: false };
     }
 
-    const data = rows.map((row): LoanStatus => ({
-      loanId: row[0] || '',
-      bank: row[1] || '',
-      loanType: row[2] || '',
-      loanAmount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
-      balance: parseInt((row[4] || '0').replace(/,/g, ''), 10) || 0,
-      interestRate: parseFloat((row[5] || '0').replace(/%/g, '')) || 0,
-      startDate: row[6] || '',
-      dueDate: row[7] || '',
-      paymentDay: parseInt(row[8] || '0', 10) || 1,
-      monthlyInterest: parseInt((row[9] || '0').replace(/,/g, ''), 10) || 0,
-      memo: row[10] || '',
-    }));
+    const data = rows
+      .filter(row => row[0] && /^L\d+$/.test(row[0].trim()))
+      .map((row): LoanStatus => ({
+        loanId: row[0].trim(),
+        bank: row[1] || '',
+        loanType: row[2] || '',
+        loanAmount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+        balance: parseInt((row[4] || '0').replace(/,/g, ''), 10) || 0,
+        interestRate: parseFloat((row[5] || '0').replace(/%/g, '')) || 0,
+        startDate: row[6] || '',
+        dueDate: row[7] || '',
+        paymentDay: parseInt(row[8] || '0', 10) || 1,
+        monthlyInterest: parseInt((row[9] || '0').replace(/,/g, ''), 10) || 0,
+        memo: row[10] || '',
+      }));
 
     return { data, isDemo: false };
   } catch (err) {
@@ -271,3 +279,4 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
     return { data: MOCK_LOANS, isDemo: true };
   }
 }
+
