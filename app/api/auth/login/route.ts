@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session (expires in 7 days)
-    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // Create session (expires in 2 hours)
+    const expiresAt = Date.now() + 2 * 60 * 60 * 1000;
     const sessionToken = await signSession({ username: matchedUser.username, expiresAt });
 
     const response = NextResponse.json({ success: true });
