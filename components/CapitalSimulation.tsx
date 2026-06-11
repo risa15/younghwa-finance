@@ -56,7 +56,7 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
       {/* Panel Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">일일 자금 흐름 시뮬레이션</h3>
+          <h3 className="text-sm sm:text-base font-bold text-slate-800 tracking-wider">일일 자금 흐름 시뮬레이션</h3>
           <p className="text-[10px] text-slate-400 mt-0.5">{selectedDate} 기준 당일 예정 자금 이벤트를 반영한 모의 연산</p>
         </div>
         
@@ -74,9 +74,6 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
           <span className="font-mono font-extrabold text-slate-700 text-sm block">
             {startLiquidAssets.toLocaleString()}원
           </span>
-          <span className="text-[9px] text-slate-400 font-semibold block">
-            ({formatKoreanShorthand(startLiquidAssets)})
-          </span>
         </div>
 
         {/* Step 2: Expected In */}
@@ -84,9 +81,6 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
           <span className="text-[10px] text-emerald-600 font-bold block">(+) 입금 예정 (B)</span>
           <span className="font-mono font-extrabold text-emerald-600 text-sm block">
             +{expectedIn.toLocaleString()}원
-          </span>
-          <span className="text-[9px] text-emerald-500 font-semibold block">
-            ({formatKoreanShorthand(expectedIn)})
           </span>
         </div>
 
@@ -96,9 +90,6 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
           <span className="font-mono font-extrabold text-rose-600 text-sm block">
             -{expectedOut.toLocaleString()}원
           </span>
-          <span className="text-[9px] text-rose-500 font-semibold block">
-            ({formatKoreanShorthand(expectedOut)})
-          </span>
         </div>
 
         {/* Step 4: End Result */}
@@ -106,9 +97,6 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
           <span className="text-[10px] text-slate-900 font-black tracking-wide block uppercase">기말 예상 유동자산 (A+B-C)</span>
           <span className="font-mono font-black text-slate-950 text-sm sm:text-base block">
             {endLiquidAssets.toLocaleString()}원
-          </span>
-          <span className="text-[10px] font-mono font-bold text-slate-500 block">
-            ({formatKoreanShorthand(endLiquidAssets)})
           </span>
         </div>
       </div>
