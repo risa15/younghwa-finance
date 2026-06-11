@@ -106,6 +106,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'detail' | 'category'>('detail');
 
   // Mount state for Recharts hydration safety
   useEffect(() => {
@@ -188,6 +189,29 @@ export default function ExpensesPage() {
       }))
       // Sort largest first
       .sort((a, b) => b.value - a.value);
+  }, [classifiedExpenses, totalAmount]);
+
+  // Aggregate category totals for table view
+  const categorySummaryData = useMemo(() => {
+    if (classifiedExpenses.length === 0) return [];
+    
+    const categoryMap: Record<string, { amount: number; count: number }> = {};
+    classifiedExpenses.forEach(e => {
+      if (!categoryMap[e.category]) {
+        categoryMap[e.category] = { amount: 0, count: 0 };
+      }
+      categoryMap[e.category].amount += e.amount;
+      categoryMap[e.category].count += 1;
+    });
+
+    return Object.entries(categoryMap)
+      .map(([name, data]) => ({
+        name,
+        amount: data.amount,
+        count: data.count,
+        percentage: totalAmount > 0 ? ((data.amount / totalAmount) * 100).toFixed(1) : '0'
+      }))
+      .sort((a, b) => b.amount - a.amount);
   }, [classifiedExpenses, totalAmount]);
 
   // Date handlers
@@ -375,11 +399,31 @@ export default function ExpensesPage() {
 
         {/* 2. Expense Details Table (Right Column, takes 2 of 3 columns) */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden lg:col-span-2">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                {viewType === 'daily' ? '일별 지출 상세 내역' : '월별 지출 상세 내역'}
-              </h3>
+          <div className="px-6 py-3.5 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              {/* Tab Selector */}
+              <div className="flex bg-slate-200/60 p-0.5 rounded-lg text-[11px] font-bold text-slate-500 shadow-inner">
+                <button
+                  onClick={() => setActiveTab('detail')}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    activeTab === 'detail'
+                      ? 'bg-white text-slate-800 shadow-sm font-extrabold'
+                      : 'hover:text-slate-800'
+                  }`}
+                >
+                  상세 내역
+                </button>
+                <button
+                  onClick={() => setActiveTab('category')}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    activeTab === 'category'
+                      ? 'bg-white text-slate-800 shadow-sm font-extrabold'
+                      : 'hover:text-slate-800'
+                  }`}
+                >
+                  분류별 집계
+                </button>
+              </div>
             </div>
             <div className="text-[10px] text-slate-400 font-semibold font-mono">
               조회 대상 기간: <span className="text-slate-600">
@@ -389,49 +433,103 @@ export default function ExpensesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
-                  <th className="px-6 py-3">날짜</th>
-                  <th className="px-6 py-3">분류</th>
-                  <th className="px-6 py-3">거래처</th>
-                  <th className="px-6 py-3">적요/메모</th>
-                  <th className="px-6 py-3 text-right">금액</th>
-                </tr>
-              </thead>
-              <tbody className="text-xs divide-y divide-slate-100">
-                {classifiedExpenses.length > 0 ? (
-                  classifiedExpenses.map((exp, idx) => (
-                    <tr key={`${exp.client}-${exp.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
-                      <td className="px-6 py-3.5 font-mono text-slate-500">{exp.date}</td>
-                      <td className="px-6 py-3.5">
-                        <span 
-                          className="px-2 py-0.5 rounded text-[10px] font-bold"
-                          style={{ 
-                            backgroundColor: `${CATEGORY_COLORS[exp.category]}15`, 
-                            color: CATEGORY_COLORS[exp.category],
-                            border: `1px solid ${CATEGORY_COLORS[exp.category]}25`
-                          }}
-                        >
-                          {exp.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-slate-800 font-bold">{exp.client}</td>
-                      <td className="px-6 py-3.5 text-slate-500 font-medium">{exp.memo || '-'}</td>
-                      <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
-                        {exp.amount.toLocaleString('ko-KR')} 원
+            {activeTab === 'detail' ? (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
+                    <th className="px-6 py-3">날짜</th>
+                    <th className="px-6 py-3">분류</th>
+                    <th className="px-6 py-3">거래처</th>
+                    <th className="px-6 py-3">적요/메모</th>
+                    <th className="px-6 py-3 text-right">금액</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {classifiedExpenses.length > 0 ? (
+                    classifiedExpenses.map((exp, idx) => (
+                      <tr key={`${exp.client}-${exp.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-3.5 font-mono text-slate-500">{exp.date}</td>
+                        <td className="px-6 py-3.5">
+                          <span 
+                            className="px-2 py-0.5 rounded text-[10px] font-bold"
+                            style={{ 
+                              backgroundColor: `${CATEGORY_COLORS[exp.category]}15`, 
+                              color: CATEGORY_COLORS[exp.category],
+                              border: `1px solid ${CATEGORY_COLORS[exp.category]}25`
+                            }}
+                          >
+                            {exp.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3.5 text-slate-800 font-bold">{exp.client}</td>
+                        <td className="px-6 py-3.5 text-slate-500 font-medium">{exp.memo || '-'}</td>
+                        <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
+                          {exp.amount.toLocaleString('ko-KR')} 원
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={5}>
+                        지정된 일자에 등록된 지출(출금) 내역이 없습니다.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={5}>
-                      지정된 일자에 등록된 지출(출금) 내역이 없습니다.
-                    </td>
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
+                    <th className="px-6 py-3">분류</th>
+                    <th className="px-6 py-3">비율</th>
+                    <th className="px-6 py-3 text-center">건수</th>
+                    <th className="px-6 py-3 text-right">합계 금액</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {categorySummaryData.length > 0 ? (
+                    categorySummaryData.map((cat, idx) => (
+                      <tr key={`${cat.name}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span 
+                              className="h-2.5 w-2.5 rounded-sm shrink-0" 
+                              style={{ backgroundColor: CATEGORY_COLORS[cat.name] }}
+                            ></span>
+                            <span className="font-bold text-slate-800">{cat.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 bg-slate-100 rounded-full h-1.5 overflow-hidden shrink-0">
+                              <div 
+                                className="h-full rounded-full" 
+                                style={{ 
+                                  width: `${cat.percentage}%`,
+                                  backgroundColor: CATEGORY_COLORS[cat.name]
+                                }}
+                              ></div>
+                            </div>
+                            <span className="font-semibold text-slate-500 font-mono text-[10px]">{cat.percentage}%</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center text-slate-600 font-medium font-mono">{cat.count}건</td>
+                        <td className="px-6 py-4 text-right font-mono font-bold text-slate-900">
+                          {cat.amount.toLocaleString('ko-KR')} 원
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={4}>
+                        지정된 일자에 등록된 지출(출금) 내역이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Table Footer Sum */}
