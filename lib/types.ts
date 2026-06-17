@@ -45,10 +45,10 @@ export interface LoanStatus {
   interestRate: number; // 금리 (%)
   startDate: string;   // 실행일 (YYYY-MM-DD)
   dueDate: string;     // 만기일 (YYYY-MM-DD)
-  paymentDay: number;  // 이자납부일 (일)
+  paymentDay: string;  // 이자납부일 (예: "15", "말일", "3/말일", "3/25")
   monthlyInterest: number; // 월 이자 (원 단위)
   repayStartDate?: string;  // 상환시작일 (신규 추가)
-  repayPaymentDay?: number; // 상환납부일 (신규 추가)
+  repayPaymentDay?: string; // 상환납부일 (신규 추가)
   repayAmount?: number;     // 상환금액 (신규 추가)
   memo?: string;       // 비고 (N열 매핑)
 }

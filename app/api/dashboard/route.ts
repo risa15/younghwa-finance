@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds, fetchLoans } from '@/lib/sheets';
+import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds, fetchLoans, getPaymentInfoForMonth } from '@/lib/sheets';
 import { AccountBalance, DashboardData } from '@/lib/types';
 
 // Simple helper to parse YYYY-MM-DD to a Date object at midnight local time
@@ -138,11 +138,12 @@ export async function GET(request: NextRequest) {
         const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
         const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
         
-        return (
-          loan.paymentDay === reqDay &&
-          reqMonthCompare >= startCompare &&
-          reqMonthCompare <= dueCompare
-        );
+        if (reqMonthCompare < startCompare || reqMonthCompare > dueCompare) {
+          return false;
+        }
+        
+        const pmtInfo = getPaymentInfoForMonth(String(loan.paymentDay), loan.startDate, reqDateParsed.getFullYear(), reqDateParsed.getMonth());
+        return pmtInfo !== null && pmtInfo.paymentDay === reqDay;
       })
       .map(loan => ({
         bank: loan.bank,
@@ -160,12 +161,13 @@ export async function GET(request: NextRequest) {
         const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
         const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
         
-        const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
-        return (
-          repayDay === reqDay &&
-          reqMonthCompare >= startCompare &&
-          reqMonthCompare <= dueCompare
-        );
+        if (reqMonthCompare < startCompare || reqMonthCompare > dueCompare) {
+          return false;
+        }
+        
+        const repayDayVal = loan.repayPaymentDay || loan.paymentDay || '1';
+        const repayInfo = getPaymentInfoForMonth(String(repayDayVal), loan.repayStartDate, reqDateParsed.getFullYear(), reqDateParsed.getMonth());
+        return repayInfo !== null && repayInfo.paymentDay === reqDay;
       })
       .map(loan => ({
         bank: loan.bank,

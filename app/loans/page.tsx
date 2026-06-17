@@ -38,10 +38,28 @@ function parseDateStr(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// Parse and format label for paymentDayStr (e.g. "3/말일", "말일", "25")
+function formatPaymentDayLabel(val: string | number | undefined): string {
+  if (val === undefined) return '정보 없음';
+  const s = String(val).trim();
+  if (!s) return '정보 없음';
+  
+  const parts = s.split('/');
+  if (parts.length === 2) {
+    const interval = parts[0].trim();
+    const day = parts[1].trim();
+    const daySuffix = day === '말일' ? '말일' : `${day}일`;
+    return `${interval}개월마다 ${daySuffix}`;
+  } else {
+    const daySuffix = s === '말일' ? '말일' : `${s}일`;
+    return `매월 ${daySuffix}`;
+  }
+}
+
 // Dynamically calculate the next interest payment date relative to selectedDate
 function calculateNextInterestDate(
   selectedDateStr: string, 
-  paymentDay: number, 
+  paymentDayVal: string | number, 
   startDateStr: string, 
   dueDateStr: string
 ): string {
@@ -50,31 +68,59 @@ function calculateNextInterestDate(
     const start = parseDateStr(startDateStr);
     const due = parseDateStr(dueDateStr);
     
-    const sy = refDate.getFullYear();
-    const sm = refDate.getMonth(); // 0-11
+    let interval = 1;
+    let dayRule = '25';
     
-    // Check if the interest day in current month is in the future or past
-    let candidate = new Date(sy, sm, paymentDay);
-    if (candidate < refDate) {
-      candidate = new Date(sy, sm + 1, paymentDay);
+    const parts = String(paymentDayVal).split('/');
+    if (parts.length === 2) {
+      interval = parseInt(parts[0], 10) || 1;
+      dayRule = parts[1].trim();
+    } else {
+      dayRule = String(paymentDayVal).trim();
     }
     
-    // Normalize comparison dates to start of month
-    const candidateCompare = new Date(candidate.getFullYear(), candidate.getMonth(), 1);
-    const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
-    const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
+    let currentYear = refDate.getFullYear();
+    let currentMonth = refDate.getMonth();
     
-    if (candidateCompare < startCompare) {
-      return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(paymentDay).padStart(2, '0')}`;
-    }
-    if (candidateCompare > dueCompare) {
-      return '상환 만기완료';
+    for (let i = 0; i < 24; i++) {
+      const sYear = start.getFullYear();
+      const sMonth = start.getMonth();
+      const diffMonths = (currentYear - sYear) * 12 + (currentMonth - sMonth);
+      
+      if (diffMonths >= 0 && diffMonths % interval === 0) {
+        let resolvedDay = 25;
+        if (dayRule === '말일') {
+          resolvedDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+        } else {
+          resolvedDay = parseInt(dayRule, 10) || 25;
+        }
+        
+        const candidate = new Date(currentYear, currentMonth, resolvedDay);
+        
+        if (candidate >= refDate) {
+          const candidateCompare = new Date(candidate.getFullYear(), candidate.getMonth(), 1);
+          const startCompare = new Date(start.getFullYear(), start.getMonth(), 1);
+          const dueCompare = new Date(due.getFullYear(), due.getMonth(), 1);
+          
+          if (candidateCompare > dueCompare) {
+            return '상환 만기완료';
+          } else if (candidateCompare >= startCompare) {
+            const y = candidate.getFullYear();
+            const m = String(candidate.getMonth() + 1).padStart(2, '0');
+            const d = String(candidate.getDate()).padStart(2, '0');
+            return `${y}.${m}.${d}`;
+          }
+        }
+      }
+      
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
     }
     
-    const y = candidate.getFullYear();
-    const m = String(candidate.getMonth() + 1).padStart(2, '0');
-    const d = String(candidate.getDate()).padStart(2, '0');
-    return `${y}.${m}.${d}`;
+    return '상환 만기완료';
   } catch (err) {
     return '정보 없음';
   }
@@ -284,7 +330,7 @@ export default function LoansPage() {
                         <div className="flex justify-between text-slate-500">
                           <span>분할상환금액</span>
                           <span className="font-mono font-semibold text-slate-700">
-                            {loan.repayAmount.toLocaleString('ko-KR')}원 (매월 {loan.repayPaymentDay || loan.paymentDay}일)
+                            {loan.repayAmount.toLocaleString('ko-KR')}원 ({formatPaymentDayLabel(loan.repayPaymentDay || loan.paymentDay)})
                           </span>
                         </div>
                       </div>
@@ -298,7 +344,7 @@ export default function LoansPage() {
                   {/* Card Footer Info */}
                   <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/30 text-[11px] flex justify-between items-center">
                     <span className="text-slate-400 font-medium">
-                      다음 이자 ({loan.paymentDay}일)
+                      다음 이자 ({formatPaymentDayLabel(loan.paymentDay)})
                     </span>
                     <span className={`font-mono font-bold ${
                       nextInterest.includes('만기완료') 

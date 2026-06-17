@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchLoans, fetchAccountBalances, calculateDynamicBalance } from '@/lib/sheets';
+import { fetchLoans, fetchAccountBalances, calculateDynamicBalance, getPaymentInfoForMonth } from '@/lib/sheets';
 
 // Helper to parse YYYY-MM-DD
 function parseDateStr(dateStr: string): Date {
@@ -67,15 +67,18 @@ export async function GET(request: NextRequest) {
         }
 
         // Add Interest Payment
-        payments.push({
-          loanId: loan.loanId,
-          bank: loan.bank,
-          loanType: loan.loanType,
-          paymentDay: loan.paymentDay,
-          amount: loan.monthlyInterest,
-          type: '이자',
-          paymentDate: `${targetYear}-${targetMonthStr}-${String(loan.paymentDay).padStart(2, '0')}`
-        });
+        const pmtInfo = getPaymentInfoForMonth(loan.paymentDay, loan.startDate, targetYear, targetMonth);
+        if (pmtInfo) {
+          payments.push({
+            loanId: loan.loanId,
+            bank: loan.bank,
+            loanType: loan.loanType,
+            paymentDay: pmtInfo.paymentDay,
+            amount: loan.monthlyInterest,
+            type: '이자',
+            paymentDate: pmtInfo.paymentDate
+          });
+        }
 
         // Add Principal Repayment (if active)
         if (loan.repayStartDate && loan.repayAmount && loan.repayAmount > 0) {
@@ -83,16 +86,19 @@ export async function GET(request: NextRequest) {
           const repayStartCompare = new Date(repayStart.getFullYear(), repayStart.getMonth(), 1);
           
           if (targetDate >= repayStartCompare && targetDate <= loanDueCompare) {
-            const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
-            payments.push({
-              loanId: loan.loanId,
-              bank: loan.bank,
-              loanType: loan.loanType,
-              paymentDay: repayDay,
-              amount: loan.repayAmount,
-              type: '원금상환',
-              paymentDate: `${targetYear}-${targetMonthStr}-${String(repayDay).padStart(2, '0')}`
-            });
+            const repayDayVal = loan.repayPaymentDay || loan.paymentDay || '1';
+            const repayInfo = getPaymentInfoForMonth(String(repayDayVal), loan.repayStartDate, targetYear, targetMonth);
+            if (repayInfo) {
+              payments.push({
+                loanId: loan.loanId,
+                bank: loan.bank,
+                loanType: loan.loanType,
+                paymentDay: repayInfo.paymentDay,
+                amount: loan.repayAmount,
+                type: '원금상환',
+                paymentDate: repayInfo.paymentDate
+              });
+            }
           }
         }
       });

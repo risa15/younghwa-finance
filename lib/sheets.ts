@@ -121,7 +121,7 @@ const MOCK_LOANS: LoanStatus[] = [
     interestRate: 4.5,
     startDate: '2024-01-15',
     dueDate: '2027-01-15',
-    paymentDay: 15,
+    paymentDay: '15',
     monthlyInterest: 1800000,
     memo: '시설2공장 구축 자금'
   },
@@ -134,7 +134,7 @@ const MOCK_LOANS: LoanStatus[] = [
     interestRate: 4.8,
     startDate: '2025-06-01',
     dueDate: '2026-12-01',
-    paymentDay: 25,
+    paymentDay: '25',
     monthlyInterest: 800000,
     memo: '운전자금 확보'
   },
@@ -147,7 +147,7 @@ const MOCK_LOANS: LoanStatus[] = [
     interestRate: 4.2,
     startDate: '2025-03-01',
     dueDate: '2026-09-30',
-    paymentDay: 10,
+    paymentDay: '10',
     monthlyInterest: 362500,
     memo: '외담대한도 대출'
   }
@@ -312,10 +312,10 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
         interestRate: parseFloat((row[5] || '0').replace(/%/g, '')) || 0,
         startDate: row[6] || '',
         dueDate: row[7] || '',
-        paymentDay: parseInt(row[8] || '0', 10) || 1,
+        paymentDay: String(row[8] || '').trim() || '1',
         monthlyInterest: parseInt((row[9] || '0').replace(/,/g, ''), 10) || 0,
         repayStartDate: row[10] || '', // K열 (상환시작일)
-        repayPaymentDay: parseInt(row[11] || '0', 10) || 0, // L열 (상환납부일)
+        repayPaymentDay: row[11] ? String(row[11]).trim() : undefined, // L열 (상환납부일)
         repayAmount: parseInt((row[12] || '0').replace(/,/g, ''), 10) || 0, // M열 (상환금액)
         memo: row[13] || '', // N열 (비고)
       }));
@@ -333,18 +333,84 @@ function parseDateStr(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// Resolve specific payment day number in a year/month for a given paymentDayStr (e.g. "3/말일", "말일", "25")
+export function getPaymentDayForMonth(paymentDayStr: string, year: number, month: number): number {
+  let dayRule = '25';
+  const parts = String(paymentDayStr).split('/');
+  if (parts.length === 2) {
+    dayRule = parts[1].trim();
+  } else {
+    dayRule = paymentDayStr.trim();
+  }
+
+  if (dayRule === '말일') {
+    return new Date(year, month + 1, 0).getDate();
+  }
+  return parseInt(dayRule, 10) || 25;
+}
+
+// Resolve interval/month checking and payment date details
+export function getPaymentInfoForMonth(
+  paymentDayStr: string,
+  startDateStr: string,
+  targetYear: number,
+  targetMonth: number // 0-indexed
+): { paymentDay: number; paymentDate: string } | null {
+  let interval = 1;
+  let dayRule = '25';
+
+  const parts = String(paymentDayStr).split('/');
+  if (parts.length === 2) {
+    interval = parseInt(parts[0], 10) || 1;
+    dayRule = parts[1].trim();
+  } else {
+    dayRule = paymentDayStr.trim();
+  }
+
+  const [sYear, sMonth] = startDateStr.split('-').map(Number);
+  const diffMonths = (targetYear - sYear) * 12 + (targetMonth - (sMonth - 1));
+
+  if (diffMonths < 0 || diffMonths % interval !== 0) {
+    return null;
+  }
+
+  let resolvedDay = 25;
+  if (dayRule === '말일') {
+    resolvedDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  } else {
+    resolvedDay = parseInt(dayRule, 10) || 25;
+  }
+
+  const yearStr = targetYear;
+  const monthStr = String(targetMonth + 1).padStart(2, '0');
+  const dayStr = String(resolvedDay).padStart(2, '0');
+
+  return {
+    paymentDay: resolvedDay,
+    paymentDate: `${yearStr}-${monthStr}-${dayStr}`
+  };
+}
+
 // Get number of monthly payments between two dates
-export function getRepaymentsBetween(date1: Date, date2: Date, paymentDay: number): number {
+export function getRepaymentsBetween(date1: Date, date2: Date, paymentDayVal: string | number): number {
   if (date1 >= date2) return 0;
   
   let count = 0;
-  let current = new Date(date1.getFullYear(), date1.getMonth(), paymentDay);
-  if (current <= date1) {
-    current.setMonth(current.getMonth() + 1);
-  }
+  let currentYear = date1.getFullYear();
+  let currentMonth = date1.getMonth();
   
-  while (current <= date2) {
-    count++;
+  const endYear = date2.getFullYear();
+  const endMonth = date2.getMonth();
+  
+  let current = new Date(currentYear, currentMonth, 1);
+  const end = new Date(endYear, endMonth, 1);
+  
+  while (current <= end) {
+    const day = getPaymentDayForMonth(String(paymentDayVal), current.getFullYear(), current.getMonth());
+    const payDate = new Date(current.getFullYear(), current.getMonth(), day);
+    if (payDate > date1 && payDate <= date2) {
+      count++;
+    }
     current.setMonth(current.getMonth() + 1);
   }
   
@@ -360,7 +426,8 @@ export function calculateDynamicBalance(loan: LoanStatus, queryDateStr: string, 
   const queryDate = parseDateStr(queryDateStr);
   const baseDate = parseDateStr(baseDateStr);
   const repayStart = parseDateStr(loan.repayStartDate);
-  const repayDay = loan.repayPaymentDay || loan.paymentDay || 1;
+  
+  const repayDayVal = loan.repayPaymentDay || loan.paymentDay || '1';
   
   if (queryDate.getTime() === baseDate.getTime()) {
     return loan.balance;
@@ -368,14 +435,14 @@ export function calculateDynamicBalance(loan: LoanStatus, queryDateStr: string, 
   
   if (queryDate > baseDate) {
     const intervalStart = baseDate > repayStart ? baseDate : new Date(repayStart.getTime() - 24 * 60 * 60 * 1000);
-    const repayments = getRepaymentsBetween(intervalStart, queryDate, repayDay);
+    const repayments = getRepaymentsBetween(intervalStart, queryDate, repayDayVal);
     return Math.max(0, loan.balance - repayments * loan.repayAmount);
   } else {
     const intervalStart = queryDate > repayStart ? queryDate : new Date(repayStart.getTime() - 24 * 60 * 60 * 1000);
     if (baseDate < repayStart) {
       return loan.balance;
     }
-    const repayments = getRepaymentsBetween(intervalStart, baseDate, repayDay);
+    const repayments = getRepaymentsBetween(intervalStart, baseDate, repayDayVal);
     return Math.min(loan.loanAmount, loan.balance + repayments * loan.repayAmount);
   }
 }
