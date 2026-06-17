@@ -355,10 +355,10 @@ export default function DailyReportPage() {
                             <td className="border border-slate-400 px-2 py-2 text-slate-700 truncate max-w-[150px]">{tx.client}</td>
                             <td className="border border-slate-400 px-2 py-2 text-right text-slate-400 font-mono">-</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">
-                              {tx.deposit > 0 ? `+${tx.deposit.toLocaleString()}` : '-'}
+                              {tx.deposit > 0 ? tx.deposit.toLocaleString() : '-'}
                             </td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">
-                              {tx.withdrawal > 0 ? `-${tx.withdrawal.toLocaleString()}` : '-'}
+                              {tx.withdrawal > 0 ? tx.withdrawal.toLocaleString() : '-'}
                             </td>
                             <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right text-slate-400 font-mono">-</td>
                           </tr>
@@ -472,10 +472,10 @@ export default function DailyReportPage() {
                             <td className="border border-slate-400 px-2 py-2 text-slate-700 truncate max-w-[150px]">{tx.client}</td>
                             <td className="border border-slate-400 px-2 py-2 text-right text-slate-400 font-mono">-</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">
-                              {tx.deposit > 0 ? `+${tx.deposit.toLocaleString()}` : '-'}
+                              {tx.deposit > 0 ? tx.deposit.toLocaleString() : '-'}
                             </td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">
-                              {tx.withdrawal > 0 ? `-${tx.withdrawal.toLocaleString()}` : '-'}
+                              {tx.withdrawal > 0 ? tx.withdrawal.toLocaleString() : '-'}
                             </td>
                             <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right text-slate-400 font-mono">-</td>
                           </tr>
@@ -549,8 +549,11 @@ export default function DailyReportPage() {
         </div>
       )}
 
-      {/* Print CSS stylesheet rule */}
+      {/* CSS stylesheet rule */}
       <style jsx global>{`
+        .bg-slate-50\\/10 {
+          white-space: nowrap !important;
+        }
         @media print {
           /* Hide non-print elements */
           body {
@@ -599,17 +602,17 @@ export default function DailyReportPage() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-slate-50\\/50 {
+          .bg-slate-50\\/50, .bg-slate-50\\/50 td {
             background-color: #f1f5f9 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-slate-100\\/50, .bg-slate-100\\/80 {
+          .bg-slate-100\\/50, .bg-slate-100\\/50 td, .bg-slate-100\\/80, .bg-slate-100\\/80 td {
             background-color: #e2e8f0 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-slate-200\\/60 {
+          .bg-slate-200\\/60, .bg-slate-200\\/60 td {
             background-color: #cbd5e1 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
