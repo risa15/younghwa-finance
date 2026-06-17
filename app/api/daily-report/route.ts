@@ -72,10 +72,21 @@ export async function GET(request: NextRequest) {
     const ordinaryAccounts = rawOrdinary.map(acc => {
       // Find matching transactions for this account
       const accTx = dayTransactions.filter(t => {
-        if (!t.account) return false; // If transaction has no account specified
-        return normalizeName(t.account) === normalizeName(acc.accountName) ||
-               normalizeName(acc.accountName).includes(normalizeName(t.account)) ||
-               normalizeName(t.account).includes(normalizeName(acc.accountName));
+        if (!t.account) return false;
+        const tName = normalizeName(t.account);
+        const accName = normalizeName(acc.accountName);
+
+        // Exact match
+        if (tName === accName) return true;
+
+        // If the account name contains parentheses (e.g. MMT, 채권, 신탁), 
+        // it shouldn't match general bank name transactions unless they specify the same details.
+        if (accName.includes('(')) {
+          return tName.includes(accName) || (tName.includes('mmt') && accName.includes('mmt'));
+        }
+
+        // Standard matching (e.g., "국민은행" matches "국민은행 보통")
+        return accName.includes(tName) || tName.includes(accName);
       });
 
       // Sum transaction deposits and withdrawals
