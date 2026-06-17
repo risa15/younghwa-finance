@@ -33,7 +33,9 @@ const MOCK_CASH_TRANSACTIONS: CashTransaction[] = [
   { date: '2026-06-16', account: '기업은행', client: '㈜레트웍스', type: '입금', amount: 1098240, memo: '㈜레트웍스 입금' },
   { date: '2026-06-16', account: '기업은행', client: '아세아텍스㈜', type: '입금', amount: 777870, memo: '아세아텍스㈜ 입금' },
   { date: '2026-06-16', account: '기업은행', client: '한국피엘에이㈜', type: '입금', amount: 6972075, memo: '한국피엘에이㈜ 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금' }
+  { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금' },
+  { date: '2026-06-16', account: '현금', client: '퀵서비스(오성)', type: '출금', amount: 35000, memo: '원자재 샘플 퀵 발송' },
+  { date: '2026-06-16', account: '현금', client: '잡지출(음료)', type: '출금', amount: 12000, memo: '사무실 손님 접대용 음료' }
 ];
 
 const MOCK_ACCOUNT_BALANCES: AccountBalance[] = [

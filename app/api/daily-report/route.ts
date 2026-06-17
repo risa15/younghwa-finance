@@ -173,12 +173,32 @@ export async function GET(request: NextRequest) {
     // 3. Group 3: 현금
     const rawCash = dayBalances.filter(b => b.type === '현금');
     const cashAccount = rawCash[0] || { balance: 0, todayDeposit: 0, todayWithdrawal: 0 };
-    const cashPrev = cashAccount.balance - (cashAccount.todayDeposit || 0) + (cashAccount.todayWithdrawal || 0);
+
+    // Find matching cash transactions
+    const cashTx = dayTransactions.filter(t => {
+      if (!t.account) return false;
+      return normalizeName(t.account) === '현금';
+    });
+
+    const computedCashDeposit = cashTx.filter(t => t.type === '입금').reduce((sum, t) => sum + t.amount, 0);
+    const computedCashWithdrawal = cashTx.filter(t => t.type === '출금').reduce((sum, t) => sum + t.amount, 0);
+
+    const cashDeposit = cashAccount.todayDeposit !== undefined && cashAccount.todayDeposit > 0 ? cashAccount.todayDeposit : computedCashDeposit;
+    const cashWithdrawal = cashAccount.todayWithdrawal !== undefined && cashAccount.todayWithdrawal > 0 ? cashAccount.todayWithdrawal : computedCashWithdrawal;
+
+    const cashPrev = cashAccount.balance - cashDeposit + cashWithdrawal;
+
     const cashData = {
       prevBalance: cashPrev,
-      todayDeposit: cashAccount.todayDeposit || 0,
-      todayWithdrawal: cashAccount.todayWithdrawal || 0,
-      balance: cashAccount.balance
+      todayDeposit: cashDeposit,
+      todayWithdrawal: cashWithdrawal,
+      balance: cashAccount.balance,
+      transactions: cashTx.map(t => ({
+        client: t.client,
+        deposit: t.type === '입금' ? t.amount : 0,
+        withdrawal: t.type === '출금' ? t.amount : 0,
+        memo: t.memo || ''
+      }))
     };
 
     // 4. Grand Total (Ordinary + Specific + Cash)

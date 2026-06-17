@@ -66,6 +66,7 @@ interface DailyReportData {
     todayDeposit: number;
     todayWithdrawal: number;
     balance: number;
+    transactions?: TxItem[];
   };
   grandTotal: {
     prevBalance: number;
@@ -415,27 +416,80 @@ export default function DailyReportPage() {
                   </tr>
 
                   {/* --- SECTION 3: 현금 --- */}
-                  <tr className="hover:bg-slate-50/20 font-medium">
-                    <td className="border border-slate-400 text-center font-bold bg-slate-50/50 align-middle" rowSpan={2}>
-                      현 금
-                    </td>
-                    <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">전일시재</td>
-                    <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
-                    <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
-                  </tr>
-                  
-                  {/* Cash Total Subtotal */}
-                  <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
-                    <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
-                    <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
-                    <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
-                  </tr>
+                  {(() => {
+                    const hasCashTx = data.cash.transactions && data.cash.transactions.length > 0;
+                    const cashRowSpan = hasCashTx ? data.cash.transactions!.length + 1 : 2;
+                    
+                    if (!hasCashTx) {
+                      return (
+                        <React.Fragment>
+                          <tr className="hover:bg-slate-50/20 font-medium">
+                            <td 
+                              className="border border-slate-400 text-center font-bold bg-slate-50/50 align-middle" 
+                              rowSpan={2}
+                            >
+                              현 금
+                            </td>
+                            <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">전일시재</td>
+                            <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
+                            <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
+                          </tr>
+                          <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
+                            <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                            <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
+                            <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    }
+                    
+                    return (
+                      <React.Fragment>
+                        {data.cash.transactions!.map((tx, txIdx) => (
+                          <tr key={`cash-tx-${txIdx}`} className="hover:bg-slate-50/20">
+                            {txIdx === 0 && (
+                              <td 
+                                className="border border-slate-400 text-center font-bold bg-slate-50/50 align-middle" 
+                                rowSpan={cashRowSpan}
+                              >
+                                현 금
+                              </td>
+                            )}
+                            {txIdx === 0 && (
+                              <td 
+                                className="border border-slate-400 px-2 py-2 font-bold bg-slate-50/10 align-middle" 
+                                rowSpan={data.cash.transactions!.length + 1}
+                              >
+                                전일시재
+                              </td>
+                            )}
+                            <td className="border border-slate-400 px-2 py-2 text-slate-700 truncate max-w-[150px]">{tx.client}</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right text-slate-400 font-mono">-</td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">
+                              {tx.deposit > 0 ? `+${tx.deposit.toLocaleString()}` : '-'}
+                            </td>
+                            <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">
+                              {tx.withdrawal > 0 ? `-${tx.withdrawal.toLocaleString()}` : '-'}
+                            </td>
+                            <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right text-slate-400 font-mono">-</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
+                          <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                          <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
+                          <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
+                          <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
+                          <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })()}
 
                   {/* --- SECTION 5: 총 계 --- */}
                   <tr className="bg-slate-200/60 font-black text-center text-slate-900 border-b-4 border-double border-slate-800">
