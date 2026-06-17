@@ -247,17 +247,17 @@ export default function DailyReportPage() {
             
             {/* Header Box (Title and Signoff) */}
             <div className="relative flex justify-between items-start mb-6">
-              <div className="w-1/3"></div>
+              <div className="w-[150px] flex-shrink-0"></div>
               
               {/* Title */}
-              <div className="w-1/3 flex flex-col items-center justify-center pt-2">
-                <h1 className="text-3xl font-bold tracking-[0.8em] text-center border-b-4 border-double border-slate-800 pb-1 pl-[0.8em]">
+              <div className="flex-1 flex flex-col items-center justify-center pt-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-[0.8em] text-center border-b-4 border-double border-slate-800 pb-1 pl-[0.8em] whitespace-nowrap">
                   시재일보
                 </h1>
               </div>
 
               {/* Approval Box */}
-              <div className="w-1/3 flex justify-end">
+              <div className="w-[150px] flex-shrink-0 flex justify-end">
                 <table className="border-collapse border border-slate-700 text-center text-xs font-sans w-36">
                   <tbody>
                     <tr>
