@@ -70,23 +70,38 @@ export async function GET(request: NextRequest) {
     // 1. Group 1: 보통예금
     const rawOrdinary = dayBalances.filter(b => b.type === '보통예금');
     const ordinaryAccounts = rawOrdinary.map(acc => {
+      const isMmtAccount = normalizeName(acc.accountName).includes('mmt');
+
       // Find matching transactions for this account
       const accTx = dayTransactions.filter(t => {
-        if (!t.account) return false;
-        const tName = normalizeName(t.account);
-        const accName = normalizeName(acc.accountName);
+        const tAccount = normalizeName(t.account || '');
+        const tClient = normalizeName(t.client || '');
 
-        // Exact match
-        if (tName === accName) return true;
+        if (isMmtAccount) {
+          // For MMT account:
+          // 1. Matches if transaction account is "기업(mmt)", "기업은행(mmt)" or contains "mmt"
+          const matchesAccount = tAccount.includes('mmt') || tAccount.includes('기업(mmt)');
+          // 2. Matches if client is "(주)영화포장(mmt계좌로)" and type is 입금
+          const matchesClient = t.type === '입금' && tClient.includes('영화포장(mmt계좌로)');
+          
+          return matchesAccount || matchesClient;
+        } else {
+          // For general accounts (like ordinary '기업은행'):
+          // We must exclude any MMT-specific transactions to avoid duplicate mapping
+          const isMmtTx = tAccount.includes('mmt') || (t.type === '입금' && tClient.includes('영화포장(mmt계좌로)'));
+          if (isMmtTx) return false;
 
-        // If the account name contains parentheses (e.g. MMT, 채권, 신탁), 
-        // it shouldn't match general bank name transactions unless they specify the same details.
-        if (accName.includes('(')) {
-          return tName.includes(accName) || (tName.includes('mmt') && accName.includes('mmt'));
+          // Regular matching logic
+          if (tAccount === '') return false;
+          if (tAccount === normalizeName(acc.accountName)) return true;
+
+          const accName = normalizeName(acc.accountName);
+          if (accName.includes('(')) {
+            return tAccount.includes(accName);
+          }
+
+          return accName.includes(tAccount) || tAccount.includes(accName);
         }
-
-        // Standard matching (e.g., "국민은행" matches "국민은행 보통")
-        return accName.includes(tName) || tName.includes(accName);
       });
 
       // Sum transaction deposits and withdrawals
