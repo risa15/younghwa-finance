@@ -23,7 +23,17 @@ const MOCK_CASH_TRANSACTIONS: CashTransaction[] = [
   { date: '2026-06-15', client: '아그니코리아㈜', type: '입금', amount: 35000000, memo: '주문 선급금' },
   { date: '2026-06-20', client: '신한카드', type: '출금', amount: 4200000, memo: '법인카드 이용대금' },
   { date: '2026-06-25', client: '진아로지스틱스㈜', type: '입금', amount: 18200000, memo: '6월 2차 입금' },
-  { date: '2026-06-28', client: '기업은행 대출이자', type: '출금', amount: 1800000, memo: 'L001 이자 자동이체' }
+  { date: '2026-06-28', client: '기업은행 대출이자', type: '출금', amount: 1800000, memo: 'L001 이자 자동이체' },
+
+  // 2026-06-16 시재일보 전용 트랜잭션 데이터 추가
+  { date: '2026-06-16', account: '기업은행', client: '석진종합포장', type: '입금', amount: 688050, memo: '석진종합포장 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '㈜샘터', type: '출금', amount: 688050, memo: '㈜샘터 출금' },
+  { date: '2026-06-16', account: '기업은행', client: '로뎀시스템체어', type: '입금', amount: 2816000, memo: '로뎀시스템체어 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '브랜드팩', type: '입금', amount: 2804961, memo: '브랜드팩 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '㈜레트웍스', type: '입금', amount: 1098240, memo: '㈜레트웍스 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '아세아텍스㈜', type: '입금', amount: 777870, memo: '아세아텍스㈜ 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '한국피엘에이㈜', type: '입금', amount: 6972075, memo: '한국피엘에이㈜ 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금' }
 ];
 
 const MOCK_ACCOUNT_BALANCES: AccountBalance[] = [
@@ -61,7 +71,20 @@ const MOCK_ACCOUNT_BALANCES: AccountBalance[] = [
   { date: '2026-06-10', type: '특정예금', accountName: '기업은행(채권)', balance: 300000000 },
   { date: '2026-06-10', type: '특정예금', accountName: '신한은행(신탁)', balance: 250000000 },
   { date: '2026-06-10', type: '특정예금', accountName: '하나은행(외환)', balance: 100000000 },
-  { date: '2026-06-10', type: '현금', accountName: '현금잔액', balance: 1180000 }
+  { date: '2026-06-10', type: '현금', accountName: '현금잔액', balance: 1180000 },
+
+  // 2026-06-16 시재일보 전용 계좌잔액 데이터 추가
+  { date: '2026-06-16', type: '보통예금', accountName: '기업은행', balance: 20336508, todayDeposit: 17724596, todayWithdrawal: 688050 },
+  { date: '2026-06-16', type: '보통예금', accountName: '기업은행(MMT)', balance: 1155000000, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '보통예금', accountName: '신한은행 보통', balance: 75177153, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '보통예금', accountName: '농협은행 보통', balance: 518, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '보통예금', accountName: '국민은행 보통', balance: 3941533, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '보통예금', accountName: '우리은행 보통', balance: 4622796, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '보통예금', accountName: '하나은행 보통', balance: 17041376, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '특정예금', accountName: '기업은행(채권)', balance: 400000000, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '특정예금', accountName: '기업은행(신탁)', balance: 600000000, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '특정예금', accountName: '기업은행(외환)', balance: 29263474, todayDeposit: 0, todayWithdrawal: 0 },
+  { date: '2026-06-16', type: '현금', accountName: '현금잔액', balance: 1139989, todayDeposit: 0, todayWithdrawal: 0 }
 ];
 
 const MOCK_NOTE_BONDS: NoteBond[] = [
@@ -71,7 +94,19 @@ const MOCK_NOTE_BONDS: NoteBond[] = [
   { regDate: '2026-05-30', type: '전자어음', issuer: '아그니코리아㈜', realClient: '주식회사 무경', dueDate: '2026-06-30', amount: 7131953, status: '미결제' },
   { regDate: '2026-06-05', type: '전자어음', issuer: '동양물산', realClient: '동양 기계', dueDate: '2026-07-05', amount: 25000000, status: '미결제' },
   { regDate: '2026-06-15', type: '종이어음', issuer: '대원강업', realClient: '대원 스프링', dueDate: '2026-07-15', amount: 14000000, status: '미결제' },
-  { regDate: '2026-05-10', type: '기업채권', issuer: '삼화왕관', realClient: '삼화 패키징', dueDate: '2026-08-10', amount: 50000000, status: '미결제' }
+  { regDate: '2026-05-10', type: '기업채권', issuer: '삼화왕관', realClient: '삼화 패키징', dueDate: '2026-08-10', amount: 50000000, status: '미결제' },
+
+  // 2026-06-16 시재일보 어음 채권 내역 추가
+  { regDate: '2026-05-01', type: '전자어음', issuer: '아그니코리아㈜', realClient: '주식회사 무경', dueDate: '2026-07-01', amount: 13395996, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '(주)보라미', realClient: '주식회사삼현제약', dueDate: '2026-07-06', amount: 5432145, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '주식회사삼현제약', realClient: '', dueDate: '2026-07-06', amount: 6830554, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '아그니코리아㈜', realClient: '대영이앤디㈜', dueDate: '2026-06-30', amount: 7131953, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '주식회사삼현제약', realClient: '', dueDate: '2026-08-06', amount: 15765108, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '아그니코리아㈜', realClient: '주식회사 무경', dueDate: '2026-08-01', amount: 24685826, status: '미결제' },
+  { regDate: '2026-05-01', type: '전자어음', issuer: '주식회사 삼현제약', realClient: '', dueDate: '2026-09-05', amount: 13952728, status: '미결제' },
+  { regDate: '2026-05-01', type: '기업채권', issuer: '㈜코아스', realClient: '', dueDate: '2026-07-10', amount: 3984200, status: '미결제' },
+  { regDate: '2026-05-01', type: '외담대', issuer: '㈜유닉스', realClient: '', dueDate: '2026-06-26', amount: 12259687, status: '미결제' },
+  { regDate: '2026-05-01', type: '외담대', issuer: '㈜경동에버런', realClient: '', dueDate: '2026-06-29', amount: 17378123, status: '미결제' }
 ];
 
 const MOCK_LOANS: LoanStatus[] = [

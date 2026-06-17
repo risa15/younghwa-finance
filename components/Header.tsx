@@ -27,6 +27,7 @@ export default function Header({ isDemo = false }: HeaderProps) {
 
   const menuItems = [
     { name: '대시보드', href: '/' },
+    { name: '시재일보', href: '/daily-report' },
     { name: '수금 현황', href: '/collections' },
     { name: '지출 현황', href: '/expenses' },
     { name: '어음·채권 관리', href: '/notes' },
