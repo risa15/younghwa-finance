@@ -599,13 +599,18 @@ export default function DailyReportPage() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-slate-200\\/60 {
+          .bg-slate-50\\/50 {
+            background-color: #f1f5f9 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .bg-slate-100\\/50, .bg-slate-100\\/80 {
             background-color: #e2e8f0 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-slate-100\\/50, .bg-slate-100\\/80, .bg-slate-50\\/50 {
-            background-color: #f8fafc !important;
+          .bg-slate-200\\/60 {
+            background-color: #cbd5e1 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
