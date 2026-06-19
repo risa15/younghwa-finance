@@ -41,6 +41,7 @@ interface DailyReportData {
   isDemo: boolean;
   approvalBox: {
     drafter: string;
+    reviewer: string;
     approver: string;
   };
   ordinaryDeposits: {
@@ -247,7 +248,7 @@ export default function DailyReportPage() {
             
             {/* Header Box (Title and Signoff) */}
             <div className="relative flex justify-between items-start mb-6">
-              <div className="w-[150px] flex-shrink-0"></div>
+              <div className="w-52 flex-shrink-0"></div>
               
               {/* Title */}
               <div className="flex-1 flex flex-col items-center justify-center pt-2">
@@ -257,14 +258,16 @@ export default function DailyReportPage() {
               </div>
 
               {/* Approval Box */}
-              <div className="w-[150px] flex-shrink-0 flex justify-end">
-                <table className="border-collapse border border-slate-700 text-center text-xs font-sans w-36">
+              <div className="w-52 flex-shrink-0 flex justify-end">
+                <table className="border-collapse border border-slate-700 text-center text-xs font-sans w-full">
                   <tbody>
                     <tr>
-                      <td className="border border-slate-700 w-1/2 py-0.5 bg-slate-100/60 font-semibold">{data.approvalBox.drafter}</td>
-                      <td className="border border-slate-700 w-1/2 py-0.5 bg-slate-100/60 font-semibold">{data.approvalBox.approver}</td>
+                      <td className="border border-slate-700 w-1/3 py-0.5 bg-slate-100/60 font-semibold">{data.approvalBox.drafter}</td>
+                      <td className="border border-slate-700 w-1/3 py-0.5 bg-slate-100/60 font-semibold">{data.approvalBox.reviewer}</td>
+                      <td className="border border-slate-700 w-1/3 py-0.5 bg-slate-100/60 font-semibold">{data.approvalBox.approver}</td>
                     </tr>
                     <tr className="h-14">
+                      <td className="border border-slate-700"></td>
                       <td className="border border-slate-700"></td>
                       <td className="border border-slate-700"></td>
                     </tr>
@@ -284,7 +287,7 @@ export default function DailyReportPage() {
                 <thead>
                   <tr className="bg-slate-100/80 border-b-2 border-slate-800 font-bold text-center">
                     <th className="border border-slate-400 px-2 py-2 w-[12%]">과 목</th>
-                    <th className="border border-slate-400 px-2 py-2 w-[18%]">세부 구분</th>
+                    <th className="border border-slate-400 px-2 py-2 w-[18%] whitespace-nowrap">세부 구분</th>
                     <th className="border border-slate-400 px-2 py-2 w-[28%]">내 역</th>
                     <th className="border border-slate-400 px-2 py-2 text-right w-[14%]">전일잔액</th>
                     <th className="border border-slate-400 px-2 py-2 text-right w-[14%]">금일입금액</th>
@@ -314,7 +317,7 @@ export default function DailyReportPage() {
                               보 통 예 금
                             </td>
                           )}
-                          <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">{acc.accountName}</td>
+                          <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10 whitespace-nowrap">{acc.accountName}</td>
                           <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(acc.prevBalance)}</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(acc.todayDeposit)}</td>
@@ -346,7 +349,7 @@ export default function DailyReportPage() {
                             {/* Column B (세부구분/계좌명) - only on the first row of this specific account's transaction list */}
                             {txIdx === 0 && (
                               <td 
-                                className="border border-slate-400 px-2 py-2 font-bold bg-slate-50/10 align-middle" 
+                                className="border border-slate-400 px-2 py-2 font-bold bg-slate-50/10 align-middle whitespace-nowrap" 
                                 rowSpan={acc.transactions!.length + 1} // span for transaction count + subtotal row
                               >
                                 {acc.accountName}
@@ -365,7 +368,7 @@ export default function DailyReportPage() {
                         ))}
                         {/* Subtotal row for this specific active account */}
                         <tr className="bg-slate-50/50 font-bold border-b border-slate-400">
-                          <td className="border border-slate-400 px-2 py-2 text-center text-slate-600">소 계</td>
+                          <td className="border border-slate-400 px-2 py-2 text-center text-slate-600 whitespace-nowrap">소 계</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(acc.prevBalance)}</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(acc.todayDeposit)}</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(acc.todayWithdrawal)}</td>
@@ -377,7 +380,7 @@ export default function DailyReportPage() {
 
                   {/* Subtotal for the ENTIRE 보통예금 section */}
                   <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 whitespace-nowrap">계</td>
                     <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                     <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.ordinaryDeposits.total.prevBalance)}</td>
                     <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.ordinaryDeposits.total.todayDeposit)}</td>
@@ -396,7 +399,7 @@ export default function DailyReportPage() {
                           특 정 예 금
                         </td>
                       )}
-                      <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">{acc.accountName}</td>
+                      <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10 whitespace-nowrap">{acc.accountName}</td>
                       <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                       <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(acc.prevBalance)}</td>
                       <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(acc.todayDeposit)}</td>
@@ -407,7 +410,7 @@ export default function DailyReportPage() {
 
                   {/* Subtotal for the ENTIRE 특정예금 section */}
                   <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 whitespace-nowrap">계</td>
                     <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                     <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.specificDeposits.total.prevBalance)}</td>
                     <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.specificDeposits.total.todayDeposit)}</td>
@@ -430,7 +433,7 @@ export default function DailyReportPage() {
                             >
                               현 금
                             </td>
-                            <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">전일시재</td>
+                            <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10 whitespace-nowrap">전일시재</td>
                             <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
@@ -438,7 +441,7 @@ export default function DailyReportPage() {
                             <td className="border-y border-l border-r-2 border-slate-400 border-r-slate-800 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.balance, false)}</td>
                           </tr>
                           <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                            <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                            <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 whitespace-nowrap">계</td>
                             <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
                             <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
@@ -463,7 +466,7 @@ export default function DailyReportPage() {
                             )}
                             {txIdx === 0 && (
                               <td 
-                                className="border border-slate-400 px-2 py-2 font-bold bg-slate-50/10 align-middle" 
+                                className="border border-slate-400 px-2 py-2 font-bold bg-slate-50/10 align-middle whitespace-nowrap" 
                                 rowSpan={data.cash.transactions!.length + 1}
                               >
                                 전일시재
@@ -481,7 +484,7 @@ export default function DailyReportPage() {
                           </tr>
                         ))}
                         <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                          <td className="border border-slate-400 px-2 py-2 text-center text-slate-800">계</td>
+                          <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 whitespace-nowrap">계</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.cash.prevBalance)}</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono text-emerald-600">{renderNumberCell(data.cash.todayDeposit)}</td>
                           <td className="border border-slate-400 px-2 py-2 text-right font-mono text-rose-600">{renderNumberCell(data.cash.todayWithdrawal)}</td>
@@ -513,7 +516,7 @@ export default function DailyReportPage() {
                           어음 채권
                         </td>
                       )}
-                      <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10">{note.bankOrDetail}</td>
+                      <td className="border border-slate-400 px-2 py-2 font-semibold bg-slate-50/10 whitespace-nowrap">{note.bankOrDetail}</td>
                       <td className="border border-slate-400 px-2 py-2 font-mono text-slate-600 text-[10px] whitespace-pre-line leading-relaxed align-middle">
                         {note.details || '-'}
                       </td>
@@ -526,7 +529,7 @@ export default function DailyReportPage() {
 
                   {/* Subtotal for the ENTIRE 어음채권 section */}
                   <tr className="bg-slate-100/50 font-bold border-b-2 border-slate-800">
-                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 font-bold">합 계</td>
+                    <td className="border border-slate-400 px-2 py-2 text-center text-slate-800 font-bold whitespace-nowrap">합 계</td>
                     <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
                     <td className="border border-slate-400 px-2 py-2 text-right font-mono">{renderNumberCell(data.noteBonds.total)}</td>
                     <td className="border border-slate-400 px-2 py-2 text-slate-400 text-center">-</td>
@@ -549,11 +552,8 @@ export default function DailyReportPage() {
         </div>
       )}
 
-      {/* CSS stylesheet rule */}
+      {/* Print CSS stylesheet rule */}
       <style jsx global>{`
-        .bg-slate-50\\/10 {
-          white-space: nowrap !important;
-        }
         @media print {
           /* Hide non-print elements */
           body {

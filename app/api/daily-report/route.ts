@@ -290,6 +290,7 @@ export async function GET(request: NextRequest) {
       isDemo,
       approvalBox: {
         drafter: '담  당',
+        reviewer: '임  원',
         approver: '대  표'
       },
       ordinaryDeposits: {
