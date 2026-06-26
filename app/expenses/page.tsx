@@ -152,7 +152,13 @@ export default function ExpensesPage() {
         // Default to maximum date in transactions if available
         if (response.data.length > 0) {
           const maxDate = response.data
-            .filter((t: CashTransaction) => t.type === '출금')
+            .filter((t: CashTransaction) => {
+              if (t.type !== '출금') return false;
+              const isInternalTransfer = 
+                t.category?.trim() === '계좌대체' || 
+                (t.client && t.client.includes('영화포장') && (t.client.includes('계좌') || t.client.includes('으로') || t.client.includes('로')));
+              return !isInternalTransfer;
+            })
             .reduce((max: string, t: CashTransaction) => t.date > max ? t.date : max, '2026-06-10');
           setSelectedDate(maxDate);
         }
@@ -170,7 +176,13 @@ export default function ExpensesPage() {
   const filteredExpenses = useMemo(() => {
     if (transactions.length === 0) return [];
     
-    const onlyWithdrawals = transactions.filter(t => t.type === '출금');
+    const onlyWithdrawals = transactions.filter(t => {
+      if (t.type !== '출금') return false;
+      const isInternalTransfer = 
+        t.category?.trim() === '계좌대체' || 
+        (t.client && t.client.includes('영화포장') && (t.client.includes('계좌') || t.client.includes('으로') || t.client.includes('로')));
+      return !isInternalTransfer;
+    });
     
     if (viewType === 'daily') {
       return onlyWithdrawals.filter(t => t.date === selectedDate);
