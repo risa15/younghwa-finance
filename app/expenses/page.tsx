@@ -44,7 +44,11 @@ function getExpenseCategory(client: string, memo: string = ''): string {
   if (
     target.includes('전력') || 
     target.includes('전기세') || 
+    target.includes('전기료') || 
     target.includes('수도') || 
+    target.includes('수도료') || 
+    target.includes('임대료') || 
+    target.includes('임차료') || 
     target.includes('보험') || 
     target.includes('공과금') || 
     target.includes('세무') || 
@@ -59,9 +63,16 @@ function getExpenseCategory(client: string, memo: string = ''): string {
     target.includes('원자재') || 
     target.includes('구매') || 
     target.includes('상환') ||
-    target.includes('코리아')
+    target.includes('코리아') ||
+    target.includes('원가')
   ) {
     return '매입·원재료비';
+  }
+  if (target.includes('운반') || target.includes('배송') || target.includes('물류') || target.includes('퀵') || target.includes('택배')) {
+    return '운반비';
+  }
+  if (target.includes('설비') || target.includes('기계') || target.includes('수리') || target.includes('장비') || target.includes('벨트')) {
+    return '설비';
   }
   if (target.includes('이자') || target.includes('금융') || target.includes('수수료') || target.includes('대출이자')) {
     return '금융·이자비용';
@@ -78,10 +89,23 @@ function mapSheetCategory(sheetCat?: string, client: string = '', memo: string =
   if (cat.includes('급여') || cat.includes('인건비') || cat.includes('상여금')) {
     return '인건비·급여';
   }
-  if (cat.includes('원자재') || cat.includes('매입') || cat.includes('스틸')) {
+  if (cat.includes('원자재') || cat.includes('매입') || cat.includes('스틸') || cat.includes('원가')) {
     return '매입·원재료비';
   }
-  if (cat.includes('세금') || cat.includes('공과금') || cat.includes('보험')) {
+  if (cat.includes('운반비')) {
+    return '운반비';
+  }
+  if (cat.includes('설비')) {
+    return '설비';
+  }
+  if (
+    cat.includes('세금') || 
+    cat.includes('공과금') || 
+    cat.includes('보험') || 
+    cat.includes('전기료') || 
+    cat.includes('수도료') || 
+    cat.includes('임대료')
+  ) {
     return '세금·공과금';
   }
   if (cat.includes('이자') || cat.includes('금융') || cat.includes('수수료') || cat.includes('대출')) {
@@ -94,6 +118,8 @@ function mapSheetCategory(sheetCat?: string, client: string = '', memo: string =
 const CATEGORY_COLORS: Record<string, string> = {
   '인건비·급여': '#f43f5e',   // Rose
   '매입·원재료비': '#3b82f6', // Blue
+  '운반비': '#10b981',       // Emerald
+  '설비': '#f97316',         // Orange
   '세금·공과금': '#eab308',   // Yellow/Gold
   '금융·이자비용': '#a855f7', // Purple
   '일반관리·기타': '#64748b'  // Slate
