@@ -195,7 +195,8 @@ function getSheetsClient() {
     
     let privateKey = credentials.private_key;
     if (privateKey && typeof privateKey === 'string') {
-      privateKey = privateKey.replace(/\\n/g, '\n');
+      // 이중 이스케이프된 백슬래시 n을 실제 줄바꿈 문자로 변환하고 양끝 공백 제거
+      privateKey = privateKey.replace(/\\n/g, '\n').trim();
     }
 
     const auth = new google.auth.JWT({
