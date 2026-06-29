@@ -154,6 +154,27 @@ const MOCK_LOANS: LoanStatus[] = [
 ];
 
 // Helper to initialize Google Sheets API
+// Helper to safely parse Google Service Account Key JSON
+function parseGoogleKey(keyStr: string): any {
+  try {
+    return JSON.parse(keyStr);
+  } catch (parseErr) {
+    console.warn('JSON.parse failed for SERVICE_ACCOUNT_KEY, trying regex fallback:', parseErr);
+    const projectIdMatch = keyStr.match(/"project_id"\s*:\s*"([^"]+)"/);
+    const clientEmailMatch = keyStr.match(/"client_email"\s*:\s*"([^"]+)"/);
+    const privateKeyMatch = keyStr.match(/"private_key"\s*:\s*"([\s\S]+?)"\s*(?:,|\})/);
+
+    if (projectIdMatch && clientEmailMatch && privateKeyMatch) {
+      return {
+        project_id: projectIdMatch[1],
+        client_email: clientEmailMatch[1],
+        private_key: privateKeyMatch[1]
+      };
+    }
+    throw parseErr;
+  }
+}
+
 function getSheetsClient() {
   if (!SERVICE_ACCOUNT_KEY || !SPREADSHEET_ID) {
     return null;
@@ -165,26 +186,7 @@ function getSheetsClient() {
       cleanKey = cleanKey.slice(1, -1);
     }
     
-    let credentials: any = {};
-    try {
-      credentials = JSON.parse(cleanKey);
-    } catch (parseErr) {
-      console.warn('JSON.parse failed for SERVICE_ACCOUNT_KEY, trying regex fallback:', parseErr);
-      
-      const projectIdMatch = cleanKey.match(/"project_id"\s*:\s*"([^"]+)"/);
-      const clientEmailMatch = cleanKey.match(/"client_email"\s*:\s*"([^"]+)"/);
-      const privateKeyMatch = cleanKey.match(/"private_key"\s*:\s*"([\s\S]+?)"\s*(?:,|\})/);
-
-      if (projectIdMatch && clientEmailMatch && privateKeyMatch) {
-        credentials = {
-          project_id: projectIdMatch[1],
-          client_email: clientEmailMatch[1],
-          private_key: privateKeyMatch[1]
-        };
-      } else {
-        throw new Error('Regex fallback parsing failed for Google key');
-      }
-    }
+    const credentials = parseGoogleKey(cleanKey);
     
     let privateKey = credentials.private_key;
     if (privateKey && typeof privateKey === 'string') {
