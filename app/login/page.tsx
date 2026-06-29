@@ -49,7 +49,7 @@ export default function LoginPage() {
         {/* Title */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-            영화포장 자금운용 시스템
+            {process.env.NEXT_PUBLIC_COMPANY_NAME || '영화포장'} 자금운용 시스템
           </h1>
           <p className="text-sm text-slate-400 mt-2">
             서비스 접근을 위해 아이디와 비밀번호를 입력해주세요.

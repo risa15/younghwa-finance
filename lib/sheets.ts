@@ -159,10 +159,41 @@ function getSheetsClient() {
     return null;
   }
   try {
-    const credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
+    let cleanKey = SERVICE_ACCOUNT_KEY.trim();
+    if ((cleanKey.startsWith("'") && cleanKey.endsWith("'")) || 
+        (cleanKey.startsWith('"') && cleanKey.endsWith('"'))) {
+      cleanKey = cleanKey.slice(1, -1);
+    }
+    
+    let credentials: any = {};
+    try {
+      credentials = JSON.parse(cleanKey);
+    } catch (parseErr) {
+      console.warn('JSON.parse failed for SERVICE_ACCOUNT_KEY, trying regex fallback:', parseErr);
+      
+      const projectIdMatch = cleanKey.match(/"project_id"\s*:\s*"([^"]+)"/);
+      const clientEmailMatch = cleanKey.match(/"client_email"\s*:\s*"([^"]+)"/);
+      const privateKeyMatch = cleanKey.match(/"private_key"\s*:\s*"([\s\S]+?)"\s*(?:,|\})/);
+
+      if (projectIdMatch && clientEmailMatch && privateKeyMatch) {
+        credentials = {
+          project_id: projectIdMatch[1],
+          client_email: clientEmailMatch[1],
+          private_key: privateKeyMatch[1]
+        };
+      } else {
+        throw new Error('Regex fallback parsing failed for Google key');
+      }
+    }
+    
+    let privateKey = credentials.private_key;
+    if (privateKey && typeof privateKey === 'string') {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
     const auth = new google.auth.JWT({
       email: credentials.client_email,
-      key: credentials.private_key,
+      key: privateKey,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
     });
     return google.sheets({ version: 'v4', auth });

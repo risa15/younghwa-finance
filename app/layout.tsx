@@ -14,10 +14,13 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-export const metadata: Metadata = {
-  title: '영화포장 자금운용 시스템',
-  description: '웹 기반 실시간 자금 현황 대시보드 및 어음 만기 관리',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || '영화포장';
+  return {
+    title: `${companyName} 자금운용 시스템`,
+    description: '웹 기반 실시간 자금 현황 대시보드 및 어음 만기 관리',
+  };
+}
 
 export default function RootLayout({
   children,

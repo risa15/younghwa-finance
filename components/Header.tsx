@@ -41,7 +41,9 @@ export default function Header({ isDemo = false }: HeaderProps) {
         {/* Brand Logo & Title */}
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-baseline gap-2">
-            <span className="font-extrabold text-slate-900 text-lg tracking-tight">영화포장</span>
+            <span className="font-extrabold text-slate-900 text-lg tracking-tight">
+              {process.env.NEXT_PUBLIC_COMPANY_NAME || '영화포장'}
+            </span>
             <span className="text-xs text-slate-500 font-semibold tracking-wider uppercase border-l border-slate-300 pl-2">
               자금운용 시스템
             </span>
