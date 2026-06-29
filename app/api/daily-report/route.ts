@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds } from '@/lib/sheets';
 import { AccountBalance, CashTransaction, NoteBond } from '@/lib/types';
