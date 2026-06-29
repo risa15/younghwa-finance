@@ -176,7 +176,12 @@ function parseGoogleKey(keyStr: string): any {
 }
 
 function getSheetsClient() {
+  console.log('--- GOOGLE SHEETS CLIENT DEBUG ---');
+  console.log('SPREADSHEET_ID_EXISTS:', !!SPREADSHEET_ID, SPREADSHEET_ID ? SPREADSHEET_ID.substring(0, 5) + '...' : 'null');
+  console.log('SERVICE_ACCOUNT_KEY_EXISTS:', !!SERVICE_ACCOUNT_KEY, SERVICE_ACCOUNT_KEY ? SERVICE_ACCOUNT_KEY.substring(0, 30) + '...' : 'null');
+
   if (!SERVICE_ACCOUNT_KEY || !SPREADSHEET_ID) {
+    console.error('Missing key or spreadsheet ID! getSheetsClient returning null.');
     return null;
   }
   try {
