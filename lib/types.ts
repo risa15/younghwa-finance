@@ -53,6 +53,17 @@ export interface LoanStatus {
   memo?: string;       // 비고 (N열 매핑)
 }
 
+// 탭 5: 수금예정
+export interface ExpectedCollection {
+  regDate: string;        // 등록일 (YYYY-MM-DD)
+  client: string;         // 거래처명
+  dueDate: string;        // 결제기한 (YYYY-MM-DD)
+  amount: number;         // 예정금액 (원 단위)
+  depositorName?: string; // 입금명의 (E열)
+  actualDate?: string;    // 실제수금일 (F열)
+  remarks?: string;       // 비고 (G열)
+}
+
 // 대시보드 API 응답 데이터 통합 구조
 export interface DashboardData {
   selectedDate: string;
@@ -63,6 +74,11 @@ export interface DashboardData {
     todayExpense: number;         // 당일 지출액
     totalLiquidAssets: number;    // 보통예금 + 특정예금 + 현금 합계
     cashBalance: number;          // 현금 잔액
+    expectedCollectionThisMonth?: number; // 이번 달 총 수금 예정액
+    collectedThisMonth?: number;          // 이번 달 수금 완료액
+    uncollectedThisMonth?: number;        // 이번 달 남은 미수 잔액
+    upcomingNotes30Days?: number;        // 30일 이내 어음·채권 만기 예정액
+    expectedCollection10Days?: number;   // 10일 이내 수금 예정액
   };
   upcomingAlerts: Array<{
     id: string;
@@ -72,11 +88,20 @@ export interface DashboardData {
     dueDate: string;
     daysLeft: number;
   }>;
+  upcomingCollections?: Array<{
+    id: string;
+    client: string;
+    amount: number;
+    dueDate: string;
+    daysLeft: number;
+    status: '대기' | '연체' | '완료';
+  }>;
   accounts: AccountBalance[];
   simulation?: {
     notesMaturing: Array<{ client: string; type: string; amount: number }>;
     interestDue: Array<{ bank: string; loanType: string; amount: number }>;
     principalRepayments?: Array<{ bank: string; loanType: string; amount: number }>;
+    expectedCollections?: Array<{ client: string; amount: number }>; // 신규 추가
     actualDeposits: number;
     actualWithdrawals: number;
     expectedIn: number;

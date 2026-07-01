@@ -1,6 +1,6 @@
 import 'server-only';
 import { google } from 'googleapis';
-import { CashTransaction, AccountBalance, NoteBond, LoanStatus } from './types';
+import { CashTransaction, AccountBalance, NoteBond, LoanStatus, ExpectedCollection } from './types';
 
 // Google Sheets Credentials & Config
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
@@ -363,6 +363,64 @@ export async function fetchLoans(): Promise<{ data: LoanStatus[]; isDemo: boolea
   } catch (err) {
     console.error('Google Sheets fetchLoans failed, using mock:', err);
     return { data: MOCK_LOANS, isDemo: true };
+  }
+}
+
+// 1.5 Mock Expected Collections Data
+const MOCK_EXPECTED_COLLECTIONS: ExpectedCollection[] = [
+  { regDate: '2026-06-01', client: '석진종합포장', dueDate: '2026-06-16', amount: 688050, actualDate: '2026-06-16', remarks: '정상 수금' },
+  { regDate: '2026-06-01', client: '로뎀시스템체어', dueDate: '2026-06-16', amount: 2800000, actualDate: '2026-06-16', remarks: '단가 조정으로 차액 발생 가능성' }, // 2816000 deposited, 16000 mismatch
+  { regDate: '2026-06-01', client: '브랜드팩', dueDate: '2026-06-16', amount: 2804961, depositorName: '브랜드팩(주)', actualDate: '2026-06-16', remarks: '입금명의 다름' },
+  { regDate: '2026-06-01', client: '㈜레트웍스', dueDate: '2026-06-16', amount: 1098240, actualDate: '2026-06-16' },
+  { regDate: '2026-06-01', client: '아세아텍스㈜', dueDate: '2026-06-16', amount: 777870, actualDate: '2026-06-16' },
+  { regDate: '2026-06-01', client: '한국피엘에이㈜', dueDate: '2026-06-16', amount: 6972075, actualDate: '2026-06-16' },
+  { regDate: '2026-06-01', client: '미나비주식회사', dueDate: '2026-06-16', amount: 2567400, actualDate: '2026-06-16' },
+  { regDate: '2026-06-01', client: '영화포장(본사)', dueDate: '2026-06-01', amount: 150000000, actualDate: '2026-06-01' },
+  // 미수 및 연체/예정 건
+  { regDate: '2026-06-01', client: '(주)대영패키지', dueDate: '2026-06-20', amount: 12500000, depositorName: '대영패키지(김대표)', remarks: '수금 예정' },
+  { regDate: '2026-06-01', client: '삼화제지', dueDate: '2026-06-25', amount: 8500000, remarks: '수금 대기' },
+  { regDate: '2026-06-01', client: '유닉스 코퍼레이션', dueDate: '2026-06-14', amount: 4200000, remarks: '연체 상태 건' },
+  { regDate: '2026-06-01', client: '한성스틸', dueDate: '2026-06-16', amount: 15000000, actualDate: '2026-06-16', remarks: '수금 처리했으나 입출금 장부 누락 가정' },
+  
+  // 7월 수금 예정 데이터 (Purpose 1을 위한 미래 데이터 시뮬레이션용)
+  { regDate: '2026-07-01', client: '진아로지스틱스㈜', dueDate: '2026-07-10', amount: 25000000, remarks: '7월 정기 수금' },
+  { regDate: '2026-07-01', client: '에스원', dueDate: '2026-07-15', amount: 12000000, remarks: '7월 자재 대금' },
+  { regDate: '2026-07-01', client: '현대스틸', dueDate: '2026-07-25', amount: 45000000, remarks: '7월 대형 납품 건' }
+];
+
+export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollection[]; isDemo: boolean }> {
+  const sheets = getSheetsClient();
+  if (!sheets || !SPREADSHEET_ID) {
+    return { data: MOCK_EXPECTED_COLLECTIONS, isDemo: true };
+  }
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: '수금예정!A2:G',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return { data: [], isDemo: false };
+    }
+
+    const data = rows
+      .filter(row => row[1] && row[1].trim())
+      .map((row): ExpectedCollection => ({
+        regDate: row[0] ? row[0].trim() : '',
+        client: row[1] ? row[1].trim() : '',
+        dueDate: row[2] ? row[2].trim() : '',
+        amount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
+        depositorName: row[4] ? row[4].trim() : undefined,
+        actualDate: row[5] ? row[5].trim() : undefined,
+        remarks: row[6] ? row[6].trim() : undefined,
+      }));
+
+    return { data, isDemo: false };
+  } catch (err) {
+    console.error('Google Sheets fetchExpectedCollections failed, using mock:', err);
+    return { data: MOCK_EXPECTED_COLLECTIONS, isDemo: true };
   }
 }
 

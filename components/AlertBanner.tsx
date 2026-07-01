@@ -28,7 +28,7 @@ export default function AlertBanner({ alerts }: AlertBannerProps) {
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-          만기 임박 알림 <span className="font-mono text-slate-400">({alerts.length}건)</span>
+          어음·채권 만기 임박 <span className="font-mono text-slate-400">({alerts.length}건)</span>
         </h2>
       </div>
 

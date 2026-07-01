@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import KPICard from '@/components/KPICard';
 import AlertBanner from '@/components/AlertBanner';
+import CollectionAlertBanner from '@/components/CollectionAlertBanner';
 import AccountTable from '@/components/AccountTable';
 import CapitalSimulation from '@/components/CapitalSimulation';
 import { DashboardData } from '@/lib/types';
@@ -170,37 +171,93 @@ export default function DashboardPage() {
         {/* 2. KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <KPICard 
-            title="당일 수금액"
-            value={data?.kpis.todayCollection || 0}
-            icon={TrendingUp}
-            color="emerald"
-            description={`${selectedDate ? selectedDate.split('-')[2] : ''}일 당일 기준`}
-          />
-          <KPICard 
-            title="당일 지출액"
-            value={data?.kpis.todayExpense || 0}
-            icon={Activity}
-            color="rose"
-            description={`${selectedDate ? selectedDate.split('-')[2] : ''}일 당일 기준`}
-          />
-          <KPICard 
             title="총 유동자산"
             value={data?.kpis.totalLiquidAssets || 0}
             icon={Wallet}
+            color="emerald"
+            description="예금 및 현금 합계"
+          />
+          <KPICard 
+            title="어음·채권 만기 예정액"
+            value={data?.kpis.upcomingNotes30Days || 0}
+            icon={Calendar}
+            color="blue"
+            description="30일 이내 만기 도래"
+          />
+          <KPICard 
+            title="단기 수금 예정액"
+            value={data?.kpis.expectedCollection10Days || 0}
+            icon={TrendingUp}
             color="amber"
-            description="예금 및 현금"
+            description="10일 이내 수금 예정"
           />
           <KPICard 
             title="현금 잔액"
             value={data?.kpis.cashBalance || 0}
             icon={Coins}
-            color="blue"
+            color="rose"
             description="예금 제외 순수 현금"
           />
         </div>
 
-        {/* 3. Upcoming Alerts Banner */}
-        <AlertBanner alerts={data?.upcomingAlerts || []} />
+        {/* New: Monthly Collection Progress Panel */}
+        {data?.kpis.expectedCollectionThisMonth !== undefined && data.kpis.expectedCollectionThisMonth > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">이번 달 수금 예정 및 진척도</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">구글 시트 '수금예정' 등록 건 기준</p>
+              </div>
+              <div className="flex items-baseline gap-1 text-xs">
+                <span className="text-slate-400 font-semibold">수금 진행률:</span>
+                <span className="font-mono font-black text-brand-emerald text-sm">
+                  {data.kpis.expectedCollectionThisMonth > 0 
+                    ? Math.round((data.kpis.collectedThisMonth || 0) / data.kpis.expectedCollectionThisMonth * 100) 
+                    : 0}%
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-50/50 rounded-lg p-3 border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold block">총 수금 예정액</span>
+                <span className="font-mono font-bold text-slate-800 text-sm mt-1 block">
+                  {data.kpis.expectedCollectionThisMonth.toLocaleString()}원
+                </span>
+              </div>
+              <div className="bg-emerald-50/30 rounded-lg p-3 border border-emerald-100/40">
+                <span className="text-[10px] text-emerald-600 font-bold block">수금 완료액</span>
+                <span className="font-mono font-bold text-brand-emerald text-sm mt-1 block">
+                  {data.kpis.collectedThisMonth?.toLocaleString()}원
+                </span>
+              </div>
+              <div className="bg-rose-50/30 rounded-lg p-3 border border-rose-100/40">
+                <span className="text-[10px] text-rose-600 font-bold block">미수 잔액</span>
+                <span className="font-mono font-bold text-rose-600 text-sm mt-1 block">
+                  {data.kpis.uncollectedThisMonth?.toLocaleString()}원
+                </span>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-slate-100 rounded-full h-2">
+              <div 
+                className="bg-brand-emerald h-full rounded-full transition-all duration-500" 
+                style={{ 
+                  width: `${data.kpis.expectedCollectionThisMonth > 0 
+                    ? Math.min(100, Math.round((data.kpis.collectedThisMonth || 0) / data.kpis.expectedCollectionThisMonth * 100)) 
+                    : 0}%` 
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 3. Upcoming Alerts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <AlertBanner alerts={data?.upcomingAlerts || []} />
+          <CollectionAlertBanner alerts={data?.upcomingCollections || []} />
+        </div>
 
         {/* 3.5 Capital Flow Simulation */}
         <CapitalSimulation simulation={data?.simulation} selectedDate={selectedDate} />

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds, fetchLoans, getPaymentInfoForMonth } from '@/lib/sheets';
+import { fetchAccountBalances, fetchCashTransactions, fetchNoteBonds, fetchLoans, fetchExpectedCollections, getPaymentInfoForMonth } from '@/lib/sheets';
 import { AccountBalance, DashboardData } from '@/lib/types';
 
 // Simple helper to parse YYYY-MM-DD to a Date object at midnight local time
@@ -30,14 +30,15 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     let requestedDate = searchParams.get('date');
 
-    const [balancesRes, transactionsRes, notesRes, loansRes] = await Promise.all([
+    const [balancesRes, transactionsRes, notesRes, loansRes, expectedRes] = await Promise.all([
       fetchAccountBalances(),
       fetchCashTransactions(),
       fetchNoteBonds(),
-      fetchLoans()
+      fetchLoans(),
+      fetchExpectedCollections()
     ]);
 
-    const isDemo = balancesRes.isDemo || transactionsRes.isDemo || notesRes.isDemo || loansRes.isDemo;
+    const isDemo = balancesRes.isDemo || transactionsRes.isDemo || notesRes.isDemo || loansRes.isDemo || expectedRes.isDemo;
 
     // 1. Find the maximum available date in the balances sheet
     let maxAvailableDate = '2026-06-10'; // Default fallback
@@ -98,6 +99,35 @@ export async function GET(request: NextRequest) {
       .filter(b => b.type === '현금')
       .reduce((sum, b) => sum + b.balance, 0);
 
+    // [New] Calculate expected collection metrics for the requested month
+    const targetMonthStr = requestedDate!.substring(0, 7); // e.g. "2026-06"
+    const collectionsThisMonth = expectedRes.data.filter(c => c.dueDate.startsWith(targetMonthStr));
+    const expectedCollectionThisMonth = collectionsThisMonth.reduce((sum, c) => sum + c.amount, 0);
+    const collectedThisMonth = collectionsThisMonth
+      .filter(c => c.actualDate && c.actualDate.trim().length > 0)
+      .reduce((sum, c) => sum + c.amount, 0);
+    const uncollectedThisMonth = expectedCollectionThisMonth - collectedThisMonth;
+
+    // [New] Calculate upcoming notes/bonds maturing within 30 days (including overdue if unpaid)
+    const upcomingNotes30Days = notesRes.data
+      .filter(n => n.status === '미결제')
+      .map(n => {
+        const daysLeft = getDaysDifference(n.dueDate, requestedDate!);
+        return { amount: n.amount, daysLeft };
+      })
+      .filter(n => n.daysLeft <= 30)
+      .reduce((sum, n) => sum + n.amount, 0);
+
+    // [New] Calculate expected collections due within 10 days (including overdue if unpaid)
+    const expectedCollection10Days = expectedRes.data
+      .filter(c => !c.actualDate || c.actualDate.trim() === '')
+      .map(c => {
+        const daysLeft = getDaysDifference(c.dueDate, requestedDate!);
+        return { amount: c.amount, daysLeft };
+      })
+      .filter(c => c.daysLeft <= 10)
+      .reduce((sum, c) => sum + c.amount, 0);
+
     // 5. Calculate upcoming notes and bonds alerts relative to requestedDate (D-7 or less)
     const upcomingAlerts = notesRes.data
       .filter(n => n.status === '미결제')
@@ -112,9 +142,24 @@ export async function GET(request: NextRequest) {
           daysLeft
         };
       })
-      // Filter for upcoming payments within 7 days, and not already expired far in the past (e.g. within -30 to 7 days)
-      // or we can show all unpaid items that are due soon, including those recently overdue (e.g., daysLeft >= 0)
       .filter(n => n.daysLeft >= 0 && n.daysLeft <= 7)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+
+    // [New] Calculate upcoming collection alerts relative to requestedDate (D-15 / D-30)
+    const upcomingCollections = expectedRes.data
+      .filter(c => !c.actualDate || c.actualDate.trim().length === 0)
+      .map(c => {
+        const daysLeft = getDaysDifference(c.dueDate, requestedDate!);
+        return {
+          id: `${c.client}-${c.dueDate}-${c.amount}`,
+          client: c.client,
+          amount: c.amount,
+          dueDate: c.dueDate,
+          daysLeft,
+          status: (daysLeft < 0 ? '연체' : '대기') as '연체' | '대기' | '완료'
+        };
+      })
+      .filter(c => c.daysLeft >= -30 && c.daysLeft <= 30) // Show overdue within 30 days and upcoming within 30 days
       .sort((a, b) => a.daysLeft - b.daysLeft);
 
     // 6. Calculate daily capital simulation for requestedDate
@@ -128,6 +173,14 @@ export async function GET(request: NextRequest) {
         client: n.issuer,
         type: n.type,
         amount: n.amount
+      }));
+
+    // Expected collections due on this exact date (unpaid)
+    const expectedCollectionsDueToday = expectedRes.data
+      .filter(c => (!c.actualDate || c.actualDate.trim() === '') && c.dueDate === requestedDate)
+      .map(c => ({
+        client: c.client,
+        amount: c.amount
       }));
 
     // Active loan interests due on this exact date
@@ -186,11 +239,12 @@ export async function GET(request: NextRequest) {
       .reduce((sum, t) => sum + t.amount, 0);
 
     const sumNotesMaturing = notesMaturing.reduce((sum, n) => sum + n.amount, 0);
+    const sumExpectedCollections = expectedCollectionsDueToday.reduce((sum, c) => sum + c.amount, 0);
     const sumInterestDue = interestDue.reduce((sum, i) => sum + i.amount, 0);
     const sumPrincipalRepayments = principalRepayments.reduce((sum, r) => sum + r.amount, 0);
 
-    // Expected inflow = actual deposits + maturing notes (receivables)
-    const expectedIn = actualDeposits + sumNotesMaturing;
+    // Expected inflow = actual deposits + maturing notes + expected collections
+    const expectedIn = actualDeposits + sumNotesMaturing + sumExpectedCollections;
     // Expected outflow = actual withdrawals + interest due + principal repayments (payables)
     const expectedOut = actualWithdrawals + sumInterestDue + sumPrincipalRepayments;
 
@@ -198,21 +252,28 @@ export async function GET(request: NextRequest) {
     const endLiquidAssets = startLiquidAssets + expectedIn - expectedOut;
 
     const dashboardData: DashboardData = {
-      selectedDate: requestedDate,
+      selectedDate: requestedDate!,
       maxAvailableDate,
       isDemo,
       kpis: {
         todayCollection,
         todayExpense,
         totalLiquidAssets,
-        cashBalance
+        cashBalance,
+        expectedCollectionThisMonth,
+        collectedThisMonth,
+        uncollectedThisMonth,
+        upcomingNotes30Days,
+        expectedCollection10Days
       },
       upcomingAlerts,
+      upcomingCollections,
       accounts: selectedBalances,
       simulation: {
         notesMaturing,
         interestDue,
-        principalRepayments, // 신규 추가
+        principalRepayments,
+        expectedCollections: expectedCollectionsDueToday,
         actualDeposits,
         actualWithdrawals,
         expectedIn,

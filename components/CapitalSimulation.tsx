@@ -18,6 +18,7 @@ interface CapitalSimulationProps {
     notesMaturing: NoteItem[];
     interestDue: InterestItem[];
     principalRepayments?: InterestItem[];
+    expectedCollections?: Array<{ client: string; amount: number }>;
     actualDeposits: number;
     actualWithdrawals: number;
     expectedIn: number;
@@ -35,6 +36,7 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
     notesMaturing,
     interestDue,
     principalRepayments = [],
+    expectedCollections = [],
     actualDeposits,
     actualWithdrawals,
     expectedIn,
@@ -48,6 +50,7 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
     notesMaturing.length > 0 || 
     interestDue.length > 0 || 
     principalRepayments.length > 0 || 
+    expectedCollections.length > 0 ||
     actualDeposits > 0 || 
     actualWithdrawals > 0;
 
@@ -119,6 +122,17 @@ export default function CapitalSimulation({ simulation, selectedDate }: CapitalS
                       {note.client} <span className="text-[9px] text-slate-400">({note.type})</span>
                     </span>
                     <span className="font-mono font-bold text-emerald-600">+{note.amount.toLocaleString()}원</span>
+                  </li>
+                ))}
+
+                {/* Expected Collections */}
+                {expectedCollections.map((col, idx) => (
+                  <li key={`in-col-${idx}`} className="py-2 flex justify-between items-center">
+                    <span className="text-slate-700">
+                      <span className="font-bold text-emerald-600 mr-1.5">[수금예정]</span>
+                      {col.client}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-600">+{col.amount.toLocaleString()}원</span>
                   </li>
                 ))}
                 

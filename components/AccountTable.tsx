@@ -34,7 +34,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
               <th className="px-6 py-3 w-1/4">구분</th>
               <th className="px-6 py-3 w-2/4">계좌명</th>
               <th className="px-6 py-3 text-right w-1/4">잔액</th>
-              <th className="px-6 py-3 text-right hidden sm:table-cell w-[10%]">점유율</th>
             </tr>
           </thead>
           <tbody className="text-xs divide-y divide-slate-100">
@@ -50,9 +49,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                 <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
                   {account.balance.toLocaleString('ko-KR')}
                 </td>
-                <td className="px-6 py-3.5 text-right font-mono text-slate-400 hidden sm:table-cell">
-                  {grandTotal > 0 ? `${((account.balance / grandTotal) * 100).toFixed(1)}%` : '0%'}
-                </td>
               </tr>
             ))}
             {ordinaryDeposits.length > 0 && (
@@ -60,9 +56,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                 <td className="px-6 py-3 text-[10px] text-brand-blue" colSpan={2}>보통예금 소계</td>
                 <td className="px-6 py-3 text-right font-mono font-bold text-slate-900">
                   {ordinarySubtotal.toLocaleString('ko-KR')}
-                </td>
-                <td className="px-6 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">
-                  {grandTotal > 0 ? `${((ordinarySubtotal / grandTotal) * 100).toFixed(1)}%` : '0%'}
                 </td>
               </tr>
             )}
@@ -79,9 +72,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                 <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
                   {account.balance.toLocaleString('ko-KR')}
                 </td>
-                <td className="px-6 py-3.5 text-right font-mono text-slate-400 hidden sm:table-cell">
-                  {grandTotal > 0 ? `${((account.balance / grandTotal) * 100).toFixed(1)}%` : '0%'}
-                </td>
               </tr>
             ))}
             {specialDeposits.length > 0 && (
@@ -89,9 +79,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                 <td className="px-6 py-3 text-[10px] text-brand-amber" colSpan={2}>특정예금 소계</td>
                 <td className="px-6 py-3 text-right font-mono font-bold text-slate-900">
                   {specialSubtotal.toLocaleString('ko-KR')}
-                </td>
-                <td className="px-6 py-3 text-right font-mono text-slate-500 hidden sm:table-cell">
-                  {grandTotal > 0 ? `${((specialSubtotal / grandTotal) * 100).toFixed(1)}%` : '0%'}
                 </td>
               </tr>
             )}
@@ -107,9 +94,6 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                 <td className="px-6 py-3.5 text-slate-700 font-medium">{account.accountName}</td>
                 <td className="px-6 py-3.5 text-right font-mono font-bold text-slate-900">
                   {account.balance.toLocaleString('ko-KR')}
-                </td>
-                <td className="px-6 py-3.5 text-right font-mono text-slate-400 hidden sm:table-cell">
-                  {grandTotal > 0 ? `${((account.balance / grandTotal) * 100).toFixed(1)}%` : '0%'}
                 </td>
               </tr>
             ))}
