@@ -2,20 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { signSession } from '@/lib/auth';
 
 const DEFAULT_USERS = [
-  { name: '김영수', username: 'yskim', password: '1122' },
-  { name: '정우진', username: 'wjo334', password: '3344' },
-  { name: '이태호', username: 'dlxogh88', password: '8899' },
-  { name: '정일구', username: 'ikchung', password: '2233' },
-  { name: '김태용', username: 'kty6808', password: '6688' },
-  { name: '김선용', username: 'sunyong1994', password: '1122' },
-  { name: '김세용', username: 'Seyong15', password: '1122' },
-  { name: '이주희', username: 'jhlee', password: '7788' },
-  { name: '양진호', username: 'jhyang', password: '9900' },
-  { name: '김윤수', username: 'rladbstn3', password: '5566' },
-  { name: '이강식', username: 'kslee', password: '7788' },
-  { name: '박천준', username: 'cjpark', password: '8899' },
+  { name: '김영수', username: 'yskim', password: '0201' },
+  { name: '김선용', username: 'sunyong1994', password: '0201' },
+  { name: '김세용', username: 'Seyong15', password: '0201' },
   { name: '함수빈', username: 'sbham', password: '6677' },
-  { name: '정명호', username: 'mhjung', password: '9988' }
+  { name: '정명호', username: 'mhjung', password: '9988' },
+  { name: '김서하', username: 'shkim', password: '8800' }
 ];
 
 function getUsers() {
@@ -27,7 +19,21 @@ function getUsers() {
       console.error('Failed to parse USER_CREDENTIALS env variable:', e);
     }
   }
-  return DEFAULT_USERS;
+
+  const list = [...DEFAULT_USERS];
+  
+  // 수출포장 법인 등에서 별도 환경변수로 관리자 계정을 설정한 경우 호환성 지원
+  const envAdminUser = process.env.LOGIN_USERNAME;
+  const envAdminPass = process.env.LOGIN_PASSWORD;
+  if (envAdminUser && envAdminPass) {
+    list.push({
+      name: '관리자',
+      username: envAdminUser,
+      password: envAdminPass
+    });
+  }
+
+  return list;
 }
 
 export async function POST(request: NextRequest) {
