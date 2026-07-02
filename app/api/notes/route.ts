@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       notes: processedNotes,
       totalUnpaidAmount,
+      selectedDate: referenceDate,
       isDemo
     });
   } catch (error) {

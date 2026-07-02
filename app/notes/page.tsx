@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   FileText, 
   Calendar, 
@@ -36,33 +36,37 @@ function parseDateStr(dateStr: string): Date {
 export default function NotesPage() {
   const [notes, setNotes] = useState<NoteBondWithDDay[]>([]);
   const [totalUnpaid, setTotalUnpaid] = useState<number>(0);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-06-10');
+  const [selectedDate, setSelectedDate] = useState<string>(''); // Dynamic default date
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch Notes
-  const fetchNotes = async (dateParam: string) => {
+  const fetchNotes = useCallback(async (dateParam?: string) => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/notes?date=${dateParam}`);
+      const url = dateParam ? `/api/notes?date=${dateParam}` : '/api/notes';
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('어음/채권 데이터를 불러오는 데 실패했습니다.');
       }
       const data = await response.json();
       setNotes(data.notes);
       setTotalUnpaid(data.totalUnpaidAmount);
+      setSelectedDate(data.selectedDate); // Sync selected date
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : '데이터 통신 에러');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // Initial fetch
   useEffect(() => {
-    fetchNotes(selectedDate);
-  }, [selectedDate]);
+    fetchNotes();
+  }, [fetchNotes]);
 
   // Filter & Sort Notes
   const processedNotes = useMemo(() => {
@@ -104,15 +108,19 @@ export default function NotesPage() {
 
   // Date handlers
   const adjustDate = (offset: number) => {
+    if (!selectedDate) return;
     const dateObj = parseDateStr(selectedDate);
     dateObj.setDate(dateObj.getDate() + offset);
     const newDateStr = formatDateStr(dateObj);
     setSelectedDate(newDateStr);
+    fetchNotes(newDateStr);
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.value) return;
-    setSelectedDate(e.target.value);
+    const newDateStr = e.target.value;
+    if (!newDateStr) return;
+    setSelectedDate(newDateStr);
+    fetchNotes(newDateStr);
   };
 
   return (
@@ -141,7 +149,11 @@ export default function NotesPage() {
           
           <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
             <span>
-              {selectedDate.split('-')[0]}년 {selectedDate.split('-')[1]}월 {selectedDate.split('-')[2]}일
+              {selectedDate ? (
+                `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월 ${selectedDate.split('-')[2]}일`
+              ) : (
+                '날짜 로딩 중...'
+              )}
             </span>
             <input 
               type="date"
