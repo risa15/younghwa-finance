@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   FileText, 
   Calendar, 
@@ -34,6 +34,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function NotesPage() {
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState<NoteBondWithDDay[]>([]);
   const [totalUnpaid, setTotalUnpaid] = useState<number>(0);
   const [selectedDate, setSelectedDate] = useState<string>(''); // Dynamic default date
@@ -147,7 +148,11 @@ export default function NotesPage() {
             <ChevronLeft className="h-4 w-4" />
           </button>
           
-          <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
+          <div 
+            onClick={() => dateInputRef.current?.showPicker()}
+            className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[155px]"
+          >
+            <Calendar className="h-3.5 w-3.5 text-slate-400" />
             <span>
               {selectedDate ? (
                 `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월 ${selectedDate.split('-')[2]}일`
@@ -156,10 +161,11 @@ export default function NotesPage() {
               )}
             </span>
             <input 
+              ref={dateInputRef}
               type="date"
               value={selectedDate}
               onChange={handleDateChange}
-              className="absolute inset-0 opacity-0 cursor-pointer"
+              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
               disabled={loading}
             />
           </div>

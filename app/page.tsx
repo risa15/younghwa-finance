@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Calendar, 
   ChevronLeft, 
@@ -33,6 +33,7 @@ function parseDateStr(dateStr: string): Date {
 }
 
 export default function DashboardPage() {
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -125,13 +126,18 @@ export default function DashboardPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
             
-            <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
+            <div 
+              onClick={() => dateInputRef.current?.showPicker()}
+              className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[155px]"
+            >
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
               <span>{selectedDate ? formatDisplayDate(selectedDate) : '날짜 선택'}</span>
               <input 
+                ref={dateInputRef}
                 type="date"
                 value={selectedDate}
                 onChange={handleDateChange}
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
                 disabled={loading}
               />
             </div>
