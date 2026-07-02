@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
       .filter(c => c.daysLeft <= 10)
       .reduce((sum, c) => sum + c.amount, 0);
 
-    // 5. Calculate upcoming notes and bonds alerts relative to requestedDate (D-7 or less)
+    // 5. Calculate upcoming notes and bonds alerts relative to requestedDate (D-7 or less, including overdue)
     const upcomingAlerts = notesRes.data
       .filter(n => n.status === '미결제')
       .map(n => {
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
           daysLeft
         };
       })
-      .filter(n => n.daysLeft >= 0 && n.daysLeft <= 7)
+      .filter(n => n.daysLeft <= 7)
       .sort((a, b) => a.daysLeft - b.daysLeft);
 
     // [New] Calculate upcoming collection alerts relative to requestedDate (D-15 / D-30)

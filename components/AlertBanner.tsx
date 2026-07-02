@@ -34,24 +34,30 @@ export default function AlertBanner({ alerts }: AlertBannerProps) {
 
       <div className="grid gap-2">
         {alerts.map((alert) => {
-          const isUrgent = alert.daysLeft <= 3;
+          const isOverdue = alert.daysLeft < 0;
+          const isUrgent = alert.daysLeft >= 0 && alert.daysLeft <= 3;
           
+          let badgeColorClass = 'bg-amber-200 text-amber-800';
+          let borderClass = 'bg-amber-50 border-amber-100 hover:bg-amber-100/60';
+          let badgeText = `D-${alert.daysLeft}`;
+
+          if (isOverdue) {
+            badgeColorClass = 'bg-rose-200 text-rose-800 animate-pulse';
+            borderClass = 'bg-rose-50 border-rose-100 hover:bg-rose-100/60';
+            badgeText = `만기경과 D+${Math.abs(alert.daysLeft)}`;
+          } else if (isUrgent) {
+            badgeColorClass = 'bg-rose-200 text-rose-800';
+            borderClass = 'bg-rose-50 border-rose-100 hover:bg-rose-100/60';
+          }
+
           return (
             <div 
               key={alert.id}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-lg border text-xs transition-colors duration-150 ${
-                isUrgent 
-                  ? 'bg-rose-50 border-rose-100 hover:bg-rose-100/60' 
-                  : 'bg-amber-50 border-amber-100 hover:bg-amber-100/60'
-              }`}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 rounded-lg border text-xs transition-colors duration-150 ${borderClass}`}
             >
               <div className="flex items-center gap-3">
-                <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
-                  isUrgent 
-                    ? 'bg-rose-200 text-rose-800' 
-                    : 'bg-amber-200 text-amber-800'
-                }`}>
-                  {alert.daysLeft === 0 ? 'D-Day' : `D-${alert.daysLeft}`}
+                <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${badgeColorClass}`}>
+                  {alert.daysLeft === 0 ? 'D-Day' : badgeText}
                 </span>
                 
                 <div className="flex items-center gap-2 flex-wrap">
