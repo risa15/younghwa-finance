@@ -108,14 +108,14 @@ export async function GET(request: NextRequest) {
       .reduce((sum, c) => sum + c.amount, 0);
     const uncollectedThisMonth = expectedCollectionThisMonth - collectedThisMonth;
 
-    // [New] Calculate upcoming notes/bonds maturing within 30 days (including overdue if unpaid)
-    const upcomingNotes30Days = notesRes.data
+    // [New] Calculate upcoming notes/bonds maturing within 20 days (including overdue if unpaid)
+    const upcomingNotes20Days = notesRes.data
       .filter(n => n.status === '미결제')
       .map(n => {
         const daysLeft = getDaysDifference(n.dueDate, requestedDate!);
         return { amount: n.amount, daysLeft };
       })
-      .filter(n => n.daysLeft <= 30)
+      .filter(n => n.daysLeft <= 20)
       .reduce((sum, n) => sum + n.amount, 0);
 
     // [New] Calculate expected collections due within 20 days (including overdue if unpaid)
@@ -263,7 +263,7 @@ export async function GET(request: NextRequest) {
         expectedCollectionThisMonth,
         collectedThisMonth,
         uncollectedThisMonth,
-        upcomingNotes30Days,
+        upcomingNotes20Days,
         expectedCollection20Days
       },
       upcomingAlerts,

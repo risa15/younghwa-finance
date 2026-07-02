@@ -185,10 +185,10 @@ export default function DashboardPage() {
           />
           <KPICard 
             title="어음·채권 만기 예정액"
-            value={data?.kpis.upcomingNotes30Days || 0}
+            value={data?.kpis.upcomingNotes20Days || 0}
             icon={Calendar}
             color="blue"
-            description="30일 이내 만기 도래"
+            description="20일 이내 만기 도래"
           />
           <KPICard 
             title="단기 수금 예정액"
