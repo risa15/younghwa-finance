@@ -118,14 +118,14 @@ export async function GET(request: NextRequest) {
       .filter(n => n.daysLeft <= 30)
       .reduce((sum, n) => sum + n.amount, 0);
 
-    // [New] Calculate expected collections due within 10 days (including overdue if unpaid)
-    const expectedCollection10Days = expectedRes.data
+    // [New] Calculate expected collections due within 20 days (including overdue if unpaid)
+    const expectedCollection20Days = expectedRes.data
       .filter(c => !c.actualDate || c.actualDate.trim() === '')
       .map(c => {
         const daysLeft = getDaysDifference(c.dueDate, requestedDate!);
         return { amount: c.amount, daysLeft };
       })
-      .filter(c => c.daysLeft <= 10)
+      .filter(c => c.daysLeft <= 20)
       .reduce((sum, c) => sum + c.amount, 0);
 
     // 5. Calculate upcoming notes and bonds alerts relative to requestedDate (D-7 or less, including overdue)
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
         collectedThisMonth,
         uncollectedThisMonth,
         upcomingNotes30Days,
-        expectedCollection10Days
+        expectedCollection20Days
       },
       upcomingAlerts,
       upcomingCollections,

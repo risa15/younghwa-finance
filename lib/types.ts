@@ -78,7 +78,7 @@ export interface DashboardData {
     collectedThisMonth?: number;          // 이번 달 수금 완료액
     uncollectedThisMonth?: number;        // 이번 달 남은 미수 잔액
     upcomingNotes30Days?: number;        // 30일 이내 어음·채권 만기 예정액
-    expectedCollection10Days?: number;   // 10일 이내 수금 예정액
+    expectedCollection20Days?: number;   // 20일 이내 수금 예정액
   };
   upcomingAlerts: Array<{
     id: string;

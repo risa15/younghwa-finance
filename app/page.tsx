@@ -192,10 +192,10 @@ export default function DashboardPage() {
           />
           <KPICard 
             title="단기 수금 예정액"
-            value={data?.kpis.expectedCollection10Days || 0}
+            value={data?.kpis.expectedCollection20Days || 0}
             icon={TrendingUp}
             color="amber"
-            description="10일 이내 수금 예정"
+            description="20일 이내 수금 예정"
           />
           <KPICard 
             title="현금 잔액"
