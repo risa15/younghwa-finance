@@ -15,7 +15,8 @@ import {
   ArrowRight,
   RefreshCw
 } from 'lucide-react';
-import { CashTransaction, ExpectedCollection } from '@/lib/types';
+import { CashTransaction, ExpectedCollection, MatchingSuggestion } from '@/lib/types';
+import MatchingSuggestions from '@/components/MatchingSuggestions';
 import { formatKoreanShorthand } from '@/components/KPICard';
 
 // Helpers
@@ -41,6 +42,7 @@ export default function CollectionsPage() {
   // New Expected Collections states
   const [activeSubTab, setActiveSubTab] = useState<'actual' | 'crossCheck'>('actual');
   const [expectedCollections, setExpectedCollections] = useState<any[]>([]);
+  const [matchingSuggestions, setMatchingSuggestions] = useState<MatchingSuggestion[]>([]);
   const [expectedLoading, setExpectedLoading] = useState<boolean>(false);
   const [expectedError, setExpectedError] = useState<string | null>(null);
 
@@ -81,6 +83,7 @@ export default function CollectionsPage() {
       if (!res.ok) throw new Error('API fetch error');
       const result = await res.json();
       setExpectedCollections(result.data);
+      setMatchingSuggestions(result.matchingSuggestions || []);
     } catch (err) {
       console.error(err);
       setExpectedError('수금 예정 및 크로스체크 내역을 불러오는 데 실패했습니다.');
@@ -341,6 +344,14 @@ export default function CollectionsPage() {
       ) : (
         /* Cross Check Tab Rendering */
         <div className={`space-y-6 sm:space-y-8 ${expectedLoading ? 'opacity-40 pointer-events-none' : ''}`}>
+          
+          {/* 스마트 입금 매칭 추천 */}
+          {matchingSuggestions.length > 0 && (
+            <MatchingSuggestions 
+              suggestions={matchingSuggestions} 
+              onMatched={fetchExpectedData} 
+            />
+          )}
           
           {/* Summary KPIs for Cross-check */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

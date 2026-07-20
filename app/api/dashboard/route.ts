@@ -251,6 +251,39 @@ export async function GET(request: NextRequest) {
     const startLiquidAssets = totalLiquidAssets;
     const endLiquidAssets = startLiquidAssets + expectedIn - expectedOut;
 
+    // 7. Calculate smart matching suggestions for unpaid expected collections
+    const unpaidCollections = expectedRes.data.filter(
+      c => !c.actualDate || c.actualDate.trim().length === 0
+    );
+
+    const depositTransactions = transactionsRes.data.filter(
+      t => t.type === '입금'
+    );
+
+    const matchingSuggestions: any[] = [];
+    const matchedTransactionIds = new Set<string>();
+
+    for (const collection of unpaidCollections) {
+      const match = depositTransactions.find(t => {
+        const tId = `${t.date}-${t.client}-${t.amount}`;
+        if (matchedTransactionIds.has(tId)) return false;
+
+        const daysDiff = Math.abs(getDaysDifference(t.date, collection.dueDate));
+        const amountMatch = t.amount === collection.amount;
+
+        return daysDiff <= 3 && amountMatch;
+      });
+
+      if (match) {
+        const tId = `${match.date}-${match.client}-${match.amount}`;
+        matchedTransactionIds.add(tId);
+        matchingSuggestions.push({
+          expected: collection,
+          actual: match
+        });
+      }
+    }
+
     const dashboardData: DashboardData = {
       selectedDate: requestedDate!,
       maxAvailableDate,
@@ -280,7 +313,8 @@ export async function GET(request: NextRequest) {
         expectedOut,
         startLiquidAssets,
         endLiquidAssets
-      }
+      },
+      matchingSuggestions
     };
 
     return NextResponse.json(dashboardData);

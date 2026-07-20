@@ -35,7 +35,8 @@ const MOCK_CASH_TRANSACTIONS: CashTransaction[] = [
   { date: '2026-06-16', account: '기업은행', client: '한국피엘에이㈜', type: '입금', amount: 6972075, memo: '한국피엘에이㈜ 입금' },
   { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금' },
   { date: '2026-06-16', account: '현금', client: '퀵서비스(오성)', type: '출금', amount: 35000, memo: '원자재 샘플 퀵 발송' },
-  { date: '2026-06-16', account: '현금', client: '잡지출(음료)', type: '출금', amount: 12000, memo: '사무실 손님 접대용 음료' }
+  { date: '2026-06-16', account: '현금', client: '잡지출(음료)', type: '출금', amount: 12000, memo: '사무실 손님 접대용 음료' },
+  { date: '2026-07-16', account: '기업은행', client: '회덕포장(주)', type: '입금', amount: 27075070, memo: '수금 완료 분' }
 ];
 
 const MOCK_ACCOUNT_BALANCES: AccountBalance[] = [
@@ -202,7 +203,7 @@ function getSheetsClient() {
     const auth = new google.auth.JWT({
       email: credentials.client_email,
       key: privateKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
     return google.sheets({ version: 'v4', auth });
   } catch (err) {
@@ -385,13 +386,18 @@ const MOCK_EXPECTED_COLLECTIONS: ExpectedCollection[] = [
   // 7월 수금 예정 데이터 (Purpose 1을 위한 미래 데이터 시뮬레이션용)
   { regDate: '2026-07-01', client: '진아로지스틱스㈜', dueDate: '2026-07-10', amount: 25000000, remarks: '7월 정기 수금' },
   { regDate: '2026-07-01', client: '에스원', dueDate: '2026-07-15', amount: 12000000, remarks: '7월 자재 대금' },
-  { regDate: '2026-07-01', client: '현대스틸', dueDate: '2026-07-25', amount: 45000000, remarks: '7월 대형 납품 건' }
+  { regDate: '2026-07-01', client: '현대스틸', dueDate: '2026-07-25', amount: 45000000, remarks: '7월 대형 납품 건' },
+  { regDate: '2026-07-01', client: '회덕포장', dueDate: '2026-07-20', amount: 27075070, remarks: '7월 수금 예정' }
 ];
 
 export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollection[]; isDemo: boolean }> {
   const sheets = getSheetsClient();
   if (!sheets || !SPREADSHEET_ID) {
-    return { data: MOCK_EXPECTED_COLLECTIONS, isDemo: true };
+    const mockWithIndex = MOCK_EXPECTED_COLLECTIONS.map((c, idx) => ({
+      ...c,
+      rowIndex: idx + 2
+    }));
+    return { data: mockWithIndex, isDemo: true };
   }
 
   try {
@@ -407,7 +413,8 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
 
     const data = rows
       .filter(row => row[1] && row[1].trim())
-      .map((row): ExpectedCollection => ({
+      .map((row, idx): ExpectedCollection => ({
+        rowIndex: idx + 2, // F열 업데이트를 위해 시트 상의 행 인덱스 저장 (헤더 1행 제외하고 2행부터 시작)
         regDate: row[0] ? row[0].trim() : '',
         client: row[1] ? row[1].trim() : '',
         dueDate: row[2] ? row[2].trim() : '',
@@ -420,7 +427,44 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
     return { data, isDemo: false };
   } catch (err) {
     console.error('Google Sheets fetchExpectedCollections failed, using mock:', err);
-    return { data: MOCK_EXPECTED_COLLECTIONS, isDemo: true };
+    const mockWithIndex = MOCK_EXPECTED_COLLECTIONS.map((c, idx) => ({
+      ...c,
+      rowIndex: idx + 2
+    }));
+    return { data: mockWithIndex, isDemo: true };
+  }
+}
+
+export async function updateExpectedCollectionActualDate(rowIndex: number, actualDate: string): Promise<{ success: boolean; error?: string }> {
+  const sheets = getSheetsClient();
+  if (!sheets || !SPREADSHEET_ID) {
+    // Demo mode: update in-memory MOCK_EXPECTED_COLLECTIONS
+    console.log(`[DEMO MODE] Updating expected collection at rowIndex ${rowIndex} to ${actualDate}`);
+    const mockIdx = rowIndex - 2;
+    if (mockIdx >= 0 && mockIdx < MOCK_EXPECTED_COLLECTIONS.length) {
+      MOCK_EXPECTED_COLLECTIONS[mockIdx].actualDate = actualDate;
+      return { success: true };
+    }
+    return { success: false, error: 'Row index out of range in demo mode' };
+  }
+
+  try {
+    // Google Sheets API: Update cell F{rowIndex} (F열은 실제수금일)
+    const range = `수금예정!F${rowIndex}`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[actualDate]]
+      }
+    });
+
+    console.log(`Google Sheets successfully updated at ${range} with value ${actualDate}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Google Sheets updateExpectedCollectionActualDate failed:', err);
+    return { success: false, error: err.message || String(err) };
   }
 }
 

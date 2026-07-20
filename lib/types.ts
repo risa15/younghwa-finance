@@ -55,6 +55,7 @@ export interface LoanStatus {
 
 // 탭 5: 수금예정
 export interface ExpectedCollection {
+  rowIndex?: number;      // 구글 시트 행 인덱스 (신규 추가, 1-indexed, e.g. 2, 3...)
   regDate: string;        // 등록일 (YYYY-MM-DD)
   client: string;         // 거래처명
   dueDate: string;        // 결제기한 (YYYY-MM-DD)
@@ -62,6 +63,12 @@ export interface ExpectedCollection {
   depositorName?: string; // 입금명의 (E열)
   actualDate?: string;    // 실제수금일 (F열)
   remarks?: string;       // 비고 (G열)
+}
+
+// 스마트 매칭 추천 구조
+export interface MatchingSuggestion {
+  expected: ExpectedCollection;
+  actual: CashTransaction;
 }
 
 // 대시보드 API 응답 데이터 통합 구조
@@ -101,7 +108,7 @@ export interface DashboardData {
     notesMaturing: Array<{ client: string; type: string; amount: number }>;
     interestDue: Array<{ bank: string; loanType: string; amount: number }>;
     principalRepayments?: Array<{ bank: string; loanType: string; amount: number }>;
-    expectedCollections?: Array<{ client: string; amount: number }>; // 신규 추가
+    expectedCollections?: Array<{ client: string; amount: number }>;
     actualDeposits: number;
     actualWithdrawals: number;
     expectedIn: number;
@@ -109,4 +116,5 @@ export interface DashboardData {
     startLiquidAssets: number;
     endLiquidAssets: number;
   };
+  matchingSuggestions?: MatchingSuggestion[]; // 스마트 매칭 추천 목록
 }

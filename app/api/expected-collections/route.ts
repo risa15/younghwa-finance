@@ -141,8 +141,48 @@ export async function GET(request: NextRequest) {
     // Filter by the month of requestedDate
     const filteredCollections = processedCollections.filter(c => c.dueDate.startsWith(targetMonthStr));
 
+    // Calculate smart matching suggestions for unpaid expected collections
+    const unpaidCollections = expectedRes.data.filter(
+      c => !c.actualDate || c.actualDate.trim().length === 0
+    );
+
+    const depositTransactions = transactionsRes.data.filter(
+      t => t.type === '입금'
+    );
+
+    const matchingSuggestions: any[] = [];
+    const matchedTransactionIds = new Set<string>();
+
+    for (const collection of unpaidCollections) {
+      const match = depositTransactions.find(t => {
+        const tId = `${t.date}-${t.client}-${t.amount}`;
+        if (matchedTransactionIds.has(tId)) return false;
+
+        try {
+          const txDate = parseDateStr(t.date);
+          const due = parseDateStr(collection.dueDate);
+          const diffTime = Math.abs(txDate.getTime() - due.getTime());
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          const amountMatch = t.amount === collection.amount;
+          return diffDays <= 3 && amountMatch;
+        } catch {
+          return false;
+        }
+      });
+
+      if (match) {
+        const tId = `${match.date}-${match.client}-${match.amount}`;
+        matchedTransactionIds.add(tId);
+        matchingSuggestions.push({
+          expected: collection,
+          actual: match
+        });
+      }
+    }
+
     return NextResponse.json({
       data: filteredCollections,
+      matchingSuggestions,
       isDemo
     });
   } catch (error) {
