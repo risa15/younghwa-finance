@@ -412,16 +412,17 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
     }
 
     const data = rows
-      .filter(row => row[1] && row[1].trim())
-      .map((row, idx): ExpectedCollection => ({
-        rowIndex: idx + 2, // F열 업데이트를 위해 시트 상의 행 인덱스 저장 (헤더 1행 제외하고 2행부터 시작)
-        regDate: row[0] ? row[0].trim() : '',
-        client: row[1] ? row[1].trim() : '',
-        dueDate: row[2] ? row[2].trim() : '',
-        amount: parseInt((row[3] || '0').replace(/,/g, ''), 10) || 0,
-        depositorName: row[4] ? row[4].trim() : undefined,
-        actualDate: row[5] ? row[5].trim() : undefined,
-        remarks: row[6] ? row[6].trim() : undefined,
+      .map((row, idx) => ({ row, originalIndex: idx + 2 }))
+      .filter(item => item.row[1] && item.row[1].trim())
+      .map((item): ExpectedCollection => ({
+        rowIndex: item.originalIndex, // 필터링 전 원본 배열 인덱스를 기준으로 실제 시트 행 번호 유지
+        regDate: item.row[0] ? item.row[0].trim() : '',
+        client: item.row[1] ? item.row[1].trim() : '',
+        dueDate: item.row[2] ? item.row[2].trim() : '',
+        amount: parseInt((item.row[3] || '0').replace(/,/g, ''), 10) || 0,
+        depositorName: item.row[4] ? item.row[4].trim() : undefined,
+        actualDate: item.row[5] ? item.row[5].trim() : undefined,
+        remarks: item.row[6] ? item.row[6].trim() : undefined,
       }));
 
     return { data, isDemo: false };
