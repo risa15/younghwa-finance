@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           const actDate = parseDateStr(actualDepositDate);
           const diffTime = Math.abs(txDate.getTime() - actDate.getTime());
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 5; // Matched within 5 days
+          return diffDays <= 30; // Matched within 30 days
         } catch {
           return false;
         }
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
           const diffTime = Math.abs(txDate.getTime() - due.getTime());
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
           const amountMatch = t.amount === collection.amount;
-          return diffDays <= 5 && amountMatch;
+          return diffDays <= 30 && amountMatch;
         } catch {
           return false;
         }

@@ -271,7 +271,7 @@ export async function GET(request: NextRequest) {
         const daysDiff = Math.abs(getDaysDifference(t.date, collection.dueDate));
         const amountMatch = t.amount === collection.amount;
 
-        return daysDiff <= 5 && amountMatch;
+        return daysDiff <= 30 && amountMatch;
       });
 
       if (match) {
