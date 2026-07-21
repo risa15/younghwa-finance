@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   Clock,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  ArrowUpDown
 } from 'lucide-react';
 import { CashTransaction, ExpectedCollection, MatchingSuggestion } from '@/lib/types';
 import MatchingSuggestions from '@/components/MatchingSuggestions';
@@ -161,6 +162,61 @@ export default function CollectionsPage() {
     } finally {
       setExpectedLoading(false);
     }
+  };
+
+  // Sorting states
+  const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status'>('dueDate');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Toggle sort direction or field
+  const toggleSort = (field: 'dueDate' | 'actualDate' | 'status') => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  // Sort helper for status priority
+  const getStatusPriority = (status: string): number => {
+    switch (status) {
+      case '연체': return 1;
+      case '불일치_내역없음': return 2;
+      case '불일치_금액오차': return 3;
+      case '대기': return 4;
+      case '완료': return 5;
+      default: return 6;
+    }
+  };
+
+  // Memoized sorted collections
+  const sortedExpectedCollections = useMemo(() => {
+    const list = [...expectedCollections];
+    list.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'dueDate') {
+        comparison = a.dueDate.localeCompare(b.dueDate);
+      } else if (sortBy === 'actualDate') {
+        const aDate = a.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
+        const bDate = b.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
+        comparison = aDate.localeCompare(bDate);
+      } else if (sortBy === 'status') {
+        comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    return list;
+  }, [expectedCollections, sortBy, sortOrder]);
+
+  const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status') => {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="h-3 w-3 text-slate-350 shrink-0" />;
+    }
+    return sortOrder === 'asc' 
+      ? <span className="text-emerald-600 font-black text-[9px] shrink-0">▲</span>
+      : <span className="text-emerald-600 font-black text-[9px] shrink-0">▼</span>;
   };
 
   useEffect(() => {
@@ -486,18 +542,42 @@ export default function CollectionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
-                    <th className="px-4 py-3 min-w-[90px]">결제기한</th>
+                    <th 
+                      className="px-4 py-3 min-w-[110px] cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => toggleSort('dueDate')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>결제기한</span>
+                        {renderSortIcon('dueDate')}
+                      </div>
+                    </th>
                     <th className="px-4 py-3">거래처명</th>
                     <th className="px-4 py-3 text-right">예정금액</th>
                     <th className="px-4 py-3">입금명의</th>
-                    <th className="px-4 py-3 min-w-[90px]">실제수금일</th>
-                    <th className="px-4 py-3 text-center">대조 상태</th>
+                    <th 
+                      className="px-4 py-3 min-w-[110px] cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => toggleSort('actualDate')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>실제수금일</span>
+                        {renderSortIcon('actualDate')}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => toggleSort('status')}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>대조 상태</span>
+                        {renderSortIcon('status')}
+                      </div>
+                    </th>
                     <th className="px-4 py-3">장부 대조 상세 정보</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {expectedCollections.length > 0 ? (
-                    expectedCollections.map((col, idx) => {
+                  {sortedExpectedCollections.length > 0 ? (
+                    sortedExpectedCollections.map((col, idx) => {
                       let statusBadge = null;
                       let statusRowClass = '';
 
