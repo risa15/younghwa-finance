@@ -110,8 +110,8 @@ export default function CollectionsPage() {
     }
   }, [selectedDate]);
 
-  // Handle direct confirm by prompting for actual collection date
-  const handleDirectConfirm = async (rowIndex: number, clientName: string) => {
+  // Handle direct confirm by prompting for actual collection date, amount, and remarks
+  const handleDirectConfirm = async (rowIndex: number, clientName: string, currentAmount: number, currentRemarks?: string) => {
     const todayStr = new Date().toISOString().substring(0, 10);
     const actualDate = window.prompt(`[${clientName}] 건의 실제 수금일을 입력해주세요 (YYYY-MM-DD):`, todayStr);
     
@@ -123,12 +123,30 @@ export default function CollectionsPage() {
       return;
     }
 
+    const amountInput = window.prompt(`[${clientName}] 건의 예정금액(수금액)을 수정하시겠습니까? (수정 불필요 시 그냥 엔터):`, currentAmount.toString());
+    const remarksInput = window.prompt(`[${clientName}] 건의 비고(메모)를 등록/수정하시겠습니까? (수정 불필요 시 그냥 엔터):`, currentRemarks || '');
+
+    const body: any = { rowIndex, actualDate };
+    
+    if (amountInput !== null && amountInput.trim() !== '' && amountInput.trim() !== currentAmount.toString()) {
+      const parsedAmount = parseInt(amountInput.replace(/,/g, ''), 10);
+      if (isNaN(parsedAmount)) {
+        alert('올바른 예정금액(숫자)을 입력해주세요.');
+        return;
+      }
+      body.amount = parsedAmount;
+    }
+    
+    if (remarksInput !== null && remarksInput.trim() !== (currentRemarks || '')) {
+      body.remarks = remarksInput.trim();
+    }
+
     try {
       setExpectedLoading(true);
       const response = await fetch('/api/expected-collections/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndex, actualDate })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -551,7 +569,7 @@ export default function CollectionsPage() {
                               col.actualDate
                             ) : (
                               <button
-                                onClick={() => handleDirectConfirm(col.rowIndex, col.client)}
+                                onClick={() => handleDirectConfirm(col.rowIndex, col.client, col.amount, col.remarks)}
                                 className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
                                 title="실제 수금일 직접 등록"
                               >

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateExpectedCollectionActualDate } from '@/lib/sheets';
+import { updateExpectedCollection } from '@/lib/sheets';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { rowIndex, actualDate } = body;
+    const { rowIndex, actualDate, amount, remarks } = body;
 
     if (rowIndex === undefined || !actualDate) {
       return NextResponse.json(
@@ -21,7 +21,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await updateExpectedCollectionActualDate(rowIdx, actualDate);
+    // Parse amount to number if provided
+    let parsedAmount: number | undefined = undefined;
+    if (amount !== undefined && amount !== null && amount !== '') {
+      parsedAmount = parseInt(String(amount).replace(/,/g, ''), 10);
+      if (isNaN(parsedAmount)) {
+        return NextResponse.json(
+          { error: 'Invalid amount' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const result = await updateExpectedCollection(rowIdx, actualDate, parsedAmount, remarks);
 
     if (!result.success) {
       return NextResponse.json(
