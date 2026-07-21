@@ -83,7 +83,25 @@ export default function CollectionsPage() {
       if (!res.ok) throw new Error('API fetch error');
       const result = await res.json();
       setExpectedCollections(result.data);
-      setMatchingSuggestions(result.matchingSuggestions || []);
+      
+      const rawSuggestions = result.matchingSuggestions || [];
+      // Filter out matching suggestions that have been dismissed via localStorage
+      try {
+        const dismissed = localStorage.getItem('dismissedSuggestions');
+        if (dismissed) {
+          const dismissedList = JSON.parse(dismissed);
+          const filtered = rawSuggestions.filter((s: any) => {
+            const key = `${s.expected.rowIndex}-${s.actual.date}-${s.actual.amount}`;
+            return !dismissedList.includes(key);
+          });
+          setMatchingSuggestions(filtered);
+        } else {
+          setMatchingSuggestions(rawSuggestions);
+        }
+      } catch (e) {
+        console.error('Failed to parse dismissedSuggestions:', e);
+        setMatchingSuggestions(rawSuggestions);
+      }
     } catch (err) {
       console.error(err);
       setExpectedError('수금 예정 및 크로스체크 내역을 불러오는 데 실패했습니다.');
@@ -91,6 +109,41 @@ export default function CollectionsPage() {
       setExpectedLoading(false);
     }
   }, [selectedDate]);
+
+  // Handle direct confirm by prompting for actual collection date
+  const handleDirectConfirm = async (rowIndex: number, clientName: string) => {
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const actualDate = window.prompt(`[${clientName}] 건의 실제 수금일을 입력해주세요 (YYYY-MM-DD):`, todayStr);
+    
+    if (!actualDate) return;
+    
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(actualDate)) {
+      alert('올바른 날짜 형식(YYYY-MM-DD)으로 입력해주세요.');
+      return;
+    }
+
+    try {
+      setExpectedLoading(true);
+      const response = await fetch('/api/expected-collections/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndex, actualDate })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '수금 확정 처리 중 오류가 발생했습니다.');
+      }
+
+      alert('수금 확정 처리가 완료되었습니다.');
+      fetchExpectedData();
+    } catch (err: any) {
+      alert(err.message || '수금 확정 처리에 실패했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (activeSubTab === 'crossCheck') {
@@ -494,7 +547,17 @@ export default function CollectionsPage() {
                             )}
                           </td>
                           <td className="px-4 py-4 font-mono text-slate-500">
-                            {col.actualDate || <span className="text-slate-350">-</span>}
+                            {col.actualDate ? (
+                              col.actualDate
+                            ) : (
+                              <button
+                                onClick={() => handleDirectConfirm(col.rowIndex, col.client)}
+                                className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
+                                title="실제 수금일 직접 등록"
+                              >
+                                직접 확정
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-4 text-center">{statusBadge}</td>
                           <td className="px-4 py-4 text-[11px]">

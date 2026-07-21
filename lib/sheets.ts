@@ -403,7 +403,7 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '수금예정!A2:G',
+      range: '수금예정!A1:G',
     });
 
     const rows = response.data.values;
@@ -412,8 +412,8 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
     }
 
     const data = rows
-      .map((row, idx) => ({ row, originalIndex: idx + 2 }))
-      .filter(item => item.row[1] && item.row[1].trim())
+      .map((row, idx) => ({ row, originalIndex: idx + 1 }))
+      .filter(item => item.row[1] && item.row[1].trim() && item.row[1] !== '거래처명')
       .map((item): ExpectedCollection => ({
         rowIndex: item.originalIndex, // 필터링 전 원본 배열 인덱스를 기준으로 실제 시트 행 번호 유지
         regDate: item.row[0] ? item.row[0].trim() : '',

@@ -31,7 +31,25 @@ function isNameMatch(expectedName: string, depositorName: string | undefined, ac
   }
   
   const cleanExp = cleanName(expectedName);
-  return cleanTx.includes(cleanExp) || cleanExp.includes(cleanTx);
+  if (cleanTx.includes(cleanExp) || cleanExp.includes(cleanTx)) return true;
+
+  // Fuzzy matching for parenthesized names (e.g. "이익재(수현산" vs "수현산업")
+  // Extract parts inside and outside parentheses (length >= 2)
+  const parts = cleanTx.split(/[\(\)]/).map(p => p.trim()).filter(p => p.length >= 2);
+  for (const part of parts) {
+    if (cleanExp.includes(part) || part.includes(cleanExp)) {
+      return true;
+    }
+  }
+
+  const expParts = cleanExp.split(/[\(\)]/).map(p => p.trim()).filter(p => p.length >= 2);
+  for (const part of expParts) {
+    if (cleanTx.includes(part) || part.includes(cleanTx)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function GET(request: NextRequest) {
