@@ -89,14 +89,14 @@ export async function GET(request: NextRequest) {
       .filter(t => t.type === '출금')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 총 유동자산 (보통예금 + 특정예금 + 현금 잔액 on balanceDate)
+    // 총 유동자산 (보통예금 + 현금 잔액 on balanceDate)
     const totalLiquidAssets = selectedBalances
-      .filter(b => b.type === '보통예금' || b.type === '특정예금' || b.type === '현금')
+      .filter(b => b.type === '보통예금' || b.type === '현금')
       .reduce((sum, b) => sum + b.balance, 0);
 
-    // 총 예금 (보통예금 + 특정예금)
-    const totalDeposits = selectedBalances
-      .filter(b => b.type === '보통예금' || b.type === '특정예금')
+    // 특정예금 잔액 (on balanceDate)
+    const specificDeposits = selectedBalances
+      .filter(b => b.type === '특정예금')
       .reduce((sum, b) => sum + b.balance, 0);
 
     // 현금 잔액 (on balanceDate)
@@ -297,7 +297,7 @@ export async function GET(request: NextRequest) {
         todayCollection,
         todayExpense,
         totalLiquidAssets,
-        totalDeposits,
+        specificDeposits,
         cashBalance,
         expectedCollectionThisMonth,
         collectedThisMonth,

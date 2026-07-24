@@ -177,11 +177,18 @@ export default function DashboardPage() {
         {/* 2. KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <KPICard 
-            title="총 예금"
-            value={data?.kpis.totalDeposits || 0}
+            title="총 유동자산"
+            value={data?.kpis.totalLiquidAssets || 0}
             icon={Wallet}
             color="emerald"
-            description="보통예금 및 특정예금 합계"
+            description="현금 및 보통예금 합계"
+          />
+          <KPICard 
+            title="특정예금 잔액"
+            value={data?.kpis.specificDeposits || 0}
+            icon={Coins}
+            color="rose"
+            description="정기예금·신탁 등 특정예금"
           />
           <KPICard 
             title="어음·채권 만기 예정액"
@@ -196,13 +203,6 @@ export default function DashboardPage() {
             icon={TrendingUp}
             color="amber"
             description="20일 이내 수금 예정"
-          />
-          <KPICard 
-            title="현금 잔액"
-            value={data?.kpis.cashBalance || 0}
-            icon={Coins}
-            color="rose"
-            description="예금 제외 순수 현금"
           />
         </div>
 

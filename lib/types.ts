@@ -79,8 +79,8 @@ export interface DashboardData {
   kpis: {
     todayCollection: number;      // 당일 수금액
     todayExpense: number;         // 당일 지출액
-    totalLiquidAssets: number;    // 보통예금 + 특정예금 + 현금 합계
-    totalDeposits: number;        // 보통예금 + 특정예금 합계
+    totalLiquidAssets: number;    // 보통예금 + 현금 합계
+    specificDeposits: number;     // 특정예금 잔액
     cashBalance: number;          // 현금 잔액
     expectedCollectionThisMonth?: number; // 이번 달 총 수금 예정액
     collectedThisMonth?: number;          // 이번 달 수금 완료액
