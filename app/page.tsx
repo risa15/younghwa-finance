@@ -177,11 +177,11 @@ export default function DashboardPage() {
         {/* 2. KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <KPICard 
-            title="총 유동자산"
-            value={data?.kpis.totalLiquidAssets || 0}
+            title="총 예금"
+            value={data?.kpis.totalDeposits || 0}
             icon={Wallet}
             color="emerald"
-            description="예금 및 현금 합계"
+            description="보통예금 및 특정예금 합계"
           />
           <KPICard 
             title="어음·채권 만기 예정액"
