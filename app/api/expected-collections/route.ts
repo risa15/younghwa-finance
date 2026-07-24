@@ -3,10 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchExpectedCollections, fetchCashTransactions } from '@/lib/sheets';
 import { ExpectedCollection } from '@/lib/types';
 
-// Helper to parse YYYY-MM-DD to a Date object at midnight local time
+// Helper to parse date strings robustly to a Date object
 function parseDateStr(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  if (!dateStr) return new Date();
+  let clean = dateStr.trim()
+    .replace(/[년월일]/g, '-')
+    .replace(/[\.\/\s]/g, '-');
+  clean = clean.replace(/-+/g, '-');
+  clean = clean.replace(/^-|-$/g, '');
+  
+  const parts = clean.split('-');
+  const year = Number(parts[0]) || 2026;
+  const month = parts[1] ? Number(parts[1]) - 1 : 0;
+  const day = parts[2] ? Number(parts[2]) : 1;
+  return new Date(year, month, day);
 }
 
 // Clean names for smart matching

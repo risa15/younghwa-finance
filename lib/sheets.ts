@@ -390,11 +390,15 @@ const MOCK_EXPECTED_COLLECTIONS: ExpectedCollection[] = [
   { regDate: '2026-07-01', client: '회덕포장', dueDate: '2026-07-20', amount: 27075070, remarks: '7월 수금 예정' }
 ];
 
-// 다양한 날짜 형식(YYYY.MM.DD, YYYY/MM/DD, YYYY.M.D 등)을 YYYY-MM-DD 표준 형식으로 변환하는 헬퍼 함수
+// 다양한 날짜 형식(YYYY.MM.DD, YYYY/MM/DD, YYYY.M.D, 한글 날짜 등)을 YYYY-MM-DD 표준 형식으로 변환하는 헬퍼 함수
 function normalizeDateStr(dateStr: string | undefined | null): string {
   if (!dateStr) return '';
-  let clean = dateStr.trim().replace(/[\.\/\s]/g, '-');
+  let clean = dateStr.trim()
+    .replace(/[년월일]/g, '-')
+    .replace(/[\.\/\s]/g, '-');
+  
   clean = clean.replace(/-+/g, '-'); // 연속된 하이픈 제거
+  clean = clean.replace(/^-|-$/g, ''); // 앞뒤 하이픈 제거
   
   const parts = clean.split('-');
   if (parts.length === 3) {
