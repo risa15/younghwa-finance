@@ -229,7 +229,10 @@ export default function CollectionsPage() {
   const filteredCollections = useMemo(() => {
     if (transactions.length === 0) return [];
     
-    const onlyDeposits = transactions.filter(t => t.type === '입금');
+    const onlyDeposits = transactions.filter(t => 
+      t.type === '입금' && 
+      (t.category?.trim() === '매출수금' || t.category?.trim() === '어음입금')
+    );
     
     if (viewType === 'daily') {
       return onlyDeposits.filter(t => t.date === selectedDate);

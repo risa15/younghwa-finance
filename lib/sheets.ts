@@ -8,35 +8,35 @@ const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
 // 1. Mock Data Definitions
 const MOCK_CASH_TRANSACTIONS: CashTransaction[] = [
-  { date: '2026-06-01', client: '영화포장(본사)', type: '입금', amount: 150000000, memo: '초기 운용자금 이체' },
+  { date: '2026-06-01', client: '영화포장(본사)', type: '입금', amount: 150000000, memo: '초기 운용자금 이체', category: '자금이체' },
   { date: '2026-06-01', client: '한국전력공사', type: '출금', amount: 3500000, memo: '5월 전기세 납부' },
   { date: '2026-06-02', client: '현대스틸', type: '출금', amount: 12000000, memo: '원자재 구매 대금' },
   { date: '2026-06-03', client: '에스원', type: '출금', amount: 450000, memo: '보안 경비 용역비' },
-  { date: '2026-06-05', client: '진아로지스틱스㈜', type: '입금', amount: 12300000, memo: '물류 대금 입금' },
-  { date: '2026-06-08', client: '진아로지스틱스㈜', type: '입금', amount: 1452550, memo: '미수금 일부 입금' },
-  { date: '2026-06-08', client: '배한근(레드캣)', type: '입금', amount: 2482128, memo: '포장재 납품 대금' },
+  { date: '2026-06-05', client: '진아로지스틱스㈜', type: '입금', amount: 12300000, memo: '물류 대금 입금', category: '매출수금' },
+  { date: '2026-06-08', client: '진아로지스틱스㈜', type: '입금', amount: 1452550, memo: '미수금 일부 입금', category: '매출수금' },
+  { date: '2026-06-08', client: '배한근(레드캣)', type: '입금', amount: 2482128, memo: '포장재 납품 대금', category: '매출수금' },
   { date: '2026-06-08', client: '임직원 급여', type: '출금', amount: 45000000, memo: '6월 급여 선지급분' },
   { date: '2026-06-09', client: '세무법인 한빛', type: '출금', amount: 1200000, memo: '기장 세무 대리 수수료' },
-  { date: '2026-06-10', client: '진아로지스틱스㈜', type: '입금', amount: 21358913, memo: '납품 대금 입금' },
+  { date: '2026-06-10', client: '진아로지스틱스㈜', type: '입금', amount: 21358913, memo: '납품 대금 입금', category: '매출수금' },
   { date: '2026-06-10', client: '경동에버런', type: '출금', amount: 7450000, memo: '외상 매입금 상환' },
   { date: '2026-06-11', client: '국민건강보험', type: '출금', amount: 8430000, memo: '4대보험 납부' },
-  { date: '2026-06-15', client: '아그니코리아㈜', type: '입금', amount: 35000000, memo: '주문 선급금' },
+  { date: '2026-06-15', client: '아그니코리아㈜', type: '입금', amount: 35000000, memo: '주문 선급금', category: '매출수금' },
   { date: '2026-06-20', client: '신한카드', type: '출금', amount: 4200000, memo: '법인카드 이용대금' },
-  { date: '2026-06-25', client: '진아로지스틱스㈜', type: '입금', amount: 18200000, memo: '6월 2차 입금' },
+  { date: '2026-06-25', client: '진아로지스틱스㈜', type: '입금', amount: 18200000, memo: '6월 2차 입금', category: '매출수금' },
   { date: '2026-06-28', client: '기업은행 대출이자', type: '출금', amount: 1800000, memo: 'L001 이자 자동이체' },
 
   // 2026-06-16 시재일보 전용 트랜잭션 데이터 추가
-  { date: '2026-06-16', account: '기업은행', client: '석진종합포장', type: '입금', amount: 688050, memo: '석진종합포장 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '석진종합포장', type: '입금', amount: 688050, memo: '석진종합포장 입금', category: '매출수금' },
   { date: '2026-06-16', account: '기업은행', client: '㈜샘터', type: '출금', amount: 688050, memo: '㈜샘터 출금' },
-  { date: '2026-06-16', account: '기업은행', client: '로뎀시스템체어', type: '입금', amount: 2816000, memo: '로뎀시스템체어 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '브랜드팩', type: '입금', amount: 2804961, memo: '브랜드팩 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '㈜레트웍스', type: '입금', amount: 1098240, memo: '㈜레트웍스 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '아세아텍스㈜', type: '입금', amount: 777870, memo: '아세아텍스㈜ 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '한국피엘에이㈜', type: '입금', amount: 6972075, memo: '한국피엘에이㈜ 입금' },
-  { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금' },
+  { date: '2026-06-16', account: '기업은행', client: '로뎀시스템체어', type: '입금', amount: 2816000, memo: '로뎀시스템체어 입금', category: '매출수금' },
+  { date: '2026-06-16', account: '기업은행', client: '브랜드팩', type: '입금', amount: 2804961, memo: '브랜드팩 입금', category: '어음입금' },
+  { date: '2026-06-16', account: '기업은행', client: '㈜레트웍스', type: '입금', amount: 1098240, memo: '㈜레트웍스 입금', category: '매출수금' },
+  { date: '2026-06-16', account: '기업은행', client: '아세아텍스㈜', type: '입금', amount: 777870, memo: '아세아텍스㈜ 입금', category: '매출수금' },
+  { date: '2026-06-16', account: '기업은행', client: '한국피엘에이㈜', type: '입금', amount: 6972075, memo: '한국피엘에이㈜ 입금', category: '매출수금' },
+  { date: '2026-06-16', account: '기업은행', client: '미나비주식회사', type: '입금', amount: 2567400, memo: '미나비주식회사 입금', category: '매출수금' },
   { date: '2026-06-16', account: '현금', client: '퀵서비스(오성)', type: '출금', amount: 35000, memo: '원자재 샘플 퀵 발송' },
   { date: '2026-06-16', account: '현금', client: '잡지출(음료)', type: '출금', amount: 12000, memo: '사무실 손님 접대용 음료' },
-  { date: '2026-07-16', account: '기업은행', client: '회덕포장(주)', type: '입금', amount: 27075070, memo: '수금 완료 분' }
+  { date: '2026-07-16', account: '기업은행', client: '회덕포장(주)', type: '입금', amount: 27075070, memo: '수금 완료 분', category: '매출수금' }
 ];
 
 const MOCK_ACCOUNT_BALANCES: AccountBalance[] = [
@@ -390,6 +390,25 @@ const MOCK_EXPECTED_COLLECTIONS: ExpectedCollection[] = [
   { regDate: '2026-07-01', client: '회덕포장', dueDate: '2026-07-20', amount: 27075070, remarks: '7월 수금 예정' }
 ];
 
+// 다양한 날짜 형식(YYYY.MM.DD, YYYY/MM/DD, YYYY.M.D 등)을 YYYY-MM-DD 표준 형식으로 변환하는 헬퍼 함수
+function normalizeDateStr(dateStr: string | undefined | null): string {
+  if (!dateStr) return '';
+  let clean = dateStr.trim().replace(/[\.\/\s]/g, '-');
+  clean = clean.replace(/-+/g, '-'); // 연속된 하이픈 제거
+  
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    let y = parts[0];
+    if (y.length === 2) {
+      y = '20' + y;
+    }
+    const m = parts[1].padStart(2, '0');
+    const d = parts[2].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return clean;
+}
+
 export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollection[]; isDemo: boolean }> {
   const sheets = getSheetsClient();
   if (!sheets || !SPREADSHEET_ID) {
@@ -416,12 +435,12 @@ export async function fetchExpectedCollections(): Promise<{ data: ExpectedCollec
       .filter(item => item.row[1] && item.row[1].trim() && item.row[1] !== '거래처명')
       .map((item): ExpectedCollection => ({
         rowIndex: item.originalIndex, // 필터링 전 원본 배열 인덱스를 기준으로 실제 시트 행 번호 유지
-        regDate: item.row[0] ? item.row[0].trim() : '',
+        regDate: normalizeDateStr(item.row[0]),
         client: item.row[1] ? item.row[1].trim() : '',
-        dueDate: item.row[2] ? item.row[2].trim() : '',
+        dueDate: normalizeDateStr(item.row[2]),
         amount: parseInt((item.row[3] || '0').replace(/,/g, ''), 10) || 0,
         depositorName: item.row[4] ? item.row[4].trim() : undefined,
-        actualDate: item.row[5] ? item.row[5].trim() : undefined,
+        actualDate: item.row[5] && item.row[5].trim() ? normalizeDateStr(item.row[5]) : undefined,
         remarks: item.row[6] ? item.row[6].trim() : undefined,
       }));
 
