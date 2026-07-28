@@ -32,8 +32,12 @@ export default function MatchingSuggestions({ suggestions = [], onMatched }: Mat
     }
   };
 
-  const handleConfirm = async (rowIndex: number, actualDate: string, clientName: string) => {
-    const isConfirmed = window.confirm(`[${clientName}] 건의 수금일을 ${actualDate}로 확정하고 구글 스프레드시트에 기록하시겠습니까?`);
+  const handleConfirm = async (rowIndex: number, actualDate: string, clientName: string, isSplit = false, splitCount = 0) => {
+    const confirmMsg = isSplit
+      ? `[${clientName}] 건(분할 입금 ${splitCount}건)의 수금일을 ${actualDate}(마지막 입금일)로 확정하고 구글 스프레드시트에 기록하시겠습니까?`
+      : `[${clientName}] 건의 수금일을 ${actualDate}로 확정하고 구글 스프레드시트에 기록하시겠습니까?`;
+
+    const isConfirmed = window.confirm(confirmMsg);
     if (!isConfirmed) return;
 
     setLoadingId(rowIndex);
@@ -76,6 +80,7 @@ export default function MatchingSuggestions({ suggestions = [], onMatched }: Mat
           const expected = suggestion.expected;
           const actual = suggestion.actual;
           const isProcessing = loadingId === expected.rowIndex;
+          const isSplit = suggestion.actuals && suggestion.actuals.length > 1;
 
           return (
             <div
@@ -90,7 +95,9 @@ export default function MatchingSuggestions({ suggestions = [], onMatched }: Mat
                     <div className="flex items-center gap-1.5">
                       <span className="px-1.5 py-0.5 bg-emerald-600 text-white font-black rounded text-[8px] tracking-widest uppercase">통장</span>
                       <span className="font-bold text-slate-700 text-xs">{actual.client}</span>
-                      <span className="text-[9px] text-slate-400 font-mono">({actual.date})</span>
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {isSplit ? `(분할 ${suggestion.actuals!.length}건)` : `(${actual.date})`}
+                      </span>
                     </div>
                     
                     <span className="hidden sm:inline text-slate-300 text-xs">➔</span>
@@ -104,13 +111,25 @@ export default function MatchingSuggestions({ suggestions = [], onMatched }: Mat
                   </div>
 
                   {/* Row 2: Large amount matching display */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-black text-sm text-emerald-600">
-                      +{actual.amount.toLocaleString()}원
-                    </span>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-medium">
-                      금액 일치 (100%)
-                    </span>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-sm text-emerald-600">
+                        +{actual.amount.toLocaleString()}원
+                      </span>
+                      <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 font-medium">
+                        금액 일치 {isSplit ? '(분할 입금)' : '(100%)'}
+                      </span>
+                    </div>
+                    {isSplit && (
+                      <div className="text-[10px] text-slate-500 font-mono space-y-0.5 mt-1 bg-slate-100/50 p-1.5 rounded border border-slate-150">
+                        {suggestion.actuals!.map((act, i) => (
+                          <div key={i} className="flex justify-between gap-4">
+                            <span>• {act.client} ({act.date})</span>
+                            <span className="font-bold text-slate-600">+{act.amount.toLocaleString()}원</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -124,7 +143,7 @@ export default function MatchingSuggestions({ suggestions = [], onMatched }: Mat
                   </button>
                   <button
                     disabled={isProcessing}
-                    onClick={() => handleConfirm(expected.rowIndex!, actual.date, expected.client)}
+                    onClick={() => handleConfirm(expected.rowIndex!, actual.date, expected.client, isSplit, suggestion.actuals?.length || 0)}
                     className={`px-3 py-2 rounded-lg text-xs font-bold shadow-sm transition-all duration-200 whitespace-nowrap ${
                       isProcessing
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'

@@ -112,16 +112,20 @@ export default function CollectionsPage() {
   }, [selectedDate]);
 
   // Handle direct confirm by prompting for actual collection date, amount, and remarks
-  const handleDirectConfirm = async (rowIndex: number, clientName: string, currentAmount: number, currentRemarks?: string) => {
+  const handleDirectConfirm = async (rowIndex: number, clientName: string, currentAmount: number, currentRemarks?: string, currentActualDate?: string) => {
     const todayStr = new Date().toISOString().substring(0, 10);
-    const actualDate = window.prompt(`[${clientName}] 건의 실제 수금일을 입력해주세요 (YYYY-MM-DD):`, todayStr);
+    const defaultDate = currentActualDate || todayStr;
+    const actualDateInput = window.prompt(`[${clientName}] 건의 실제 수금일을 입력해주세요 (YYYY-MM-DD) (비워두면 수금 미완료 상태로 돌아갑니다):`, defaultDate);
     
-    if (!actualDate) return;
+    if (actualDateInput === null) return;
     
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(actualDate)) {
-      alert('올바른 날짜 형식(YYYY-MM-DD)으로 입력해주세요.');
-      return;
+    const actualDate = actualDateInput.trim();
+    if (actualDate !== '') {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(actualDate)) {
+        alert('올바른 날짜 형식(YYYY-MM-DD)으로 입력해주세요.');
+        return;
+      }
     }
 
     const amountInput = window.prompt(`[${clientName}] 건의 예정금액(수금액)을 수정하시겠습니까? (수정 불필요 시 그냥 엔터):`, currentAmount.toString());
@@ -649,7 +653,16 @@ export default function CollectionsPage() {
                           </td>
                           <td className="px-4 py-4 font-mono text-slate-500">
                             {col.actualDate ? (
-                              col.actualDate
+                              <div className="flex items-center gap-1.5">
+                                <span>{col.actualDate}</span>
+                                <button
+                                  onClick={() => handleDirectConfirm(col.rowIndex, col.client, col.amount, col.remarks, col.actualDate)}
+                                  className="text-slate-400 hover:text-emerald-600 hover:underline transition-colors font-bold text-[10px] shrink-0"
+                                  title="수금 정보 수정"
+                                >
+                                  [수정]
+                                </button>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => handleDirectConfirm(col.rowIndex, col.client, col.amount, col.remarks)}

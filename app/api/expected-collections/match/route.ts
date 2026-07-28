@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { rowIndex, actualDate, amount, remarks } = body;
 
-    if (rowIndex === undefined || !actualDate) {
+    if (rowIndex === undefined || actualDate === undefined || actualDate === null) {
       return NextResponse.json(
         { error: 'rowIndex and actualDate are required' },
         { status: 400 }

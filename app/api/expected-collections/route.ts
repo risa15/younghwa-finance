@@ -62,6 +62,38 @@ function isNameMatch(expectedName: string, depositorName: string | undefined, ac
   return false;
 }
 
+// Find a subset of transactions that sum up to the target amount (with a tolerance of up to 1000 won)
+function findSubsetSum(txs: any[], target: number, tolerance = 1000): any[] | null {
+  const list = txs.slice(0, 10); // Limit search depth for safety
+  let bestSubset: any[] | null = null;
+  let bestDiff = Infinity;
+  
+  function backtrack(index: number, currentSum: number, currentSet: any[]) {
+    const diff = Math.abs(currentSum - target);
+    if (diff <= tolerance) {
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestSubset = [...currentSet];
+      }
+      if (diff === 0) return; // Exact match found
+    }
+    if (currentSum > target + tolerance || index >= list.length) {
+      return;
+    }
+    
+    // Try including list[index]
+    currentSet.push(list[index]);
+    backtrack(index + 1, currentSum + list[index].amount, currentSet);
+    currentSet.pop();
+    
+    // Try excluding list[index]
+    backtrack(index + 1, currentSum, currentSet);
+  }
+  
+  backtrack(0, 0, []);
+  return bestSubset;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -93,7 +125,7 @@ export async function GET(request: NextRequest) {
       // 2. If actualDate is provided, perform cross-checking with cash ledger
       const actualDepositDate = c.actualDate.trim();
       
-      // Filter transactions matching client name and within +/- 3 days of actualDate
+      // Filter transactions matching client name and within +/- 30 days of actualDate
       const matchingTxs = transactionsRes.data.filter(tx => {
         if (tx.type !== '입금') return false;
         
@@ -125,45 +157,103 @@ export async function GET(request: NextRequest) {
         };
       }
 
-      // Find the best match: prioritize exact amount match, otherwise closest amount
-      let bestMatch = matchingTxs[0];
-      let exactMatchFound = false;
-
-      for (const tx of matchingTxs) {
-        if (tx.amount === c.amount) {
-          bestMatch = tx;
-          exactMatchFound = true;
-          break;
+      // Sort matchingTxs by date proximity to actualDepositDate
+      matchingTxs.sort((a, b) => {
+        try {
+          const aDate = parseDateStr(a.date);
+          const bDate = parseDateStr(b.date);
+          const actDate = parseDateStr(actualDepositDate);
+          return Math.abs(aDate.getTime() - actDate.getTime()) - Math.abs(bDate.getTime() - actDate.getTime());
+        } catch {
+          return 0;
         }
-      }
+      });
 
-      const difference = bestMatch.amount - c.amount;
-      
-      if (exactMatchFound) {
+      // 2.1 Check if single transaction matches amount within tolerance (1,000 won)
+      const exactSingleMatch = matchingTxs.find(tx => Math.abs(tx.amount - c.amount) <= 1000);
+      if (exactSingleMatch) {
+        const difference = exactSingleMatch.amount - c.amount;
+        const diffText = difference === 0 ? '' : ` (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원)`;
         return {
           ...c,
           status: '완료',
           matchDetails: {
-            actualAmount: bestMatch.amount,
-            actualDate: bestMatch.date,
-            actualClient: bestMatch.client,
-            difference: 0,
-            message: '입출금 장부와 일치합니다.'
+            actualAmount: exactSingleMatch.amount,
+            actualDate: exactSingleMatch.date,
+            actualClient: exactSingleMatch.client,
+            difference,
+            message: `입출금 장부와 일치합니다${diffText}.`
           }
         };
-      } else {
+      }
+
+      // 2.2 Check if a subset of transactions sums to c.amount within tolerance (1,000 won)
+      const subset = findSubsetSum(matchingTxs, c.amount, 1000);
+      if (subset && subset.length > 0) {
+        const totalAmount = subset.reduce((sum, tx) => sum + tx.amount, 0);
+        const difference = totalAmount - c.amount;
+        const diffText = difference === 0 ? '' : ` (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원)`;
+        const latestTx = subset.reduce((latest, tx) => tx.date > latest.date ? tx : latest, subset[0]);
+        const matchedDetailsList = subset.map(tx => `${tx.amount.toLocaleString()}원(${tx.date.substring(5)})`).join(' + ');
+        return {
+          ...c,
+          status: '완료',
+          matchDetails: {
+            actualAmount: totalAmount,
+            actualDate: latestTx.date,
+            actualClient: subset[0].client,
+            difference,
+            message: `입출금 장부와 일치합니다${diffText} (${subset.length}건 분할 입금: ${matchedDetailsList})`
+          }
+        };
+      }
+
+      // 2.3 Fallback 1: Sum up transactions close to actualDepositDate (+/- 3 days)
+      const closeTxs = matchingTxs.filter(tx => {
+        try {
+          const txDate = parseDateStr(tx.date);
+          const actDate = parseDateStr(actualDepositDate);
+          const diffTime = Math.abs(txDate.getTime() - actDate.getTime());
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 3;
+        } catch {
+          return false;
+        }
+      });
+
+      if (closeTxs.length > 0) {
+        const totalAmount = closeTxs.reduce((sum, tx) => sum + tx.amount, 0);
+        const difference = totalAmount - c.amount;
+        const latestTx = closeTxs.reduce((latest, tx) => tx.date > latest.date ? tx : latest, closeTxs[0]);
+        const sumDetailsList = closeTxs.map(tx => `${tx.amount.toLocaleString()}원(${tx.date.substring(5)})`).join(' + ');
+        
         return {
           ...c,
           status: '불일치_금액오차',
           matchDetails: {
-            actualAmount: bestMatch.amount,
-            actualDate: bestMatch.date,
-            actualClient: bestMatch.client,
+            actualAmount: totalAmount,
+            actualDate: latestTx.date,
+            actualClient: closeTxs[0].client,
             difference,
-            message: `금액 불일치 (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원)`
+            message: `금액 불일치 (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원) (${closeTxs.length}건 합산: ${sumDetailsList})`
           }
         };
       }
+
+      // 2.4 Fallback 2: Pick the single closest transaction within 30 days
+      const closestTx = matchingTxs[0];
+      const difference = closestTx.amount - c.amount;
+      return {
+        ...c,
+        status: '불일치_금액오차',
+        matchDetails: {
+          actualAmount: closestTx.amount,
+          actualDate: closestTx.date,
+          actualClient: closestTx.client,
+          difference,
+          message: `금액 불일치 (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원) (가장 가까운 내역: ${closestTx.amount.toLocaleString()}원(${closestTx.date.substring(5)}))`
+        }
+      };
     });
 
     // Filter by the month of requestedDate
@@ -182,29 +272,72 @@ export async function GET(request: NextRequest) {
     const matchedTransactionIds = new Set<string>();
 
     for (const collection of unpaidCollections) {
-      const match = depositTransactions.find(t => {
+      // Find all unused deposit transactions from this client within +/- 30 days
+      const clientTxs = depositTransactions.filter(t => {
         const tId = `${t.date}-${t.client}-${t.amount}`;
         if (matchedTransactionIds.has(tId)) return false;
+
+        const nameMatched = isNameMatch(collection.client, collection.depositorName, t.client);
+        if (!nameMatched) return false;
 
         try {
           const txDate = parseDateStr(t.date);
           const due = parseDateStr(collection.dueDate);
           const diffTime = Math.abs(txDate.getTime() - due.getTime());
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          const amountMatch = t.amount === collection.amount;
-          return diffDays <= 30 && amountMatch;
+          return diffDays <= 30; // within 30 days of due date
         } catch {
           return false;
         }
       });
 
-      if (match) {
-        const tId = `${match.date}-${match.client}-${match.amount}`;
+      // Sort clientTxs by proximity to collection.dueDate
+      clientTxs.sort((a, b) => {
+        try {
+          const aDate = parseDateStr(a.date);
+          const bDate = parseDateStr(b.date);
+          const due = parseDateStr(collection.dueDate);
+          return Math.abs(aDate.getTime() - due.getTime()) - Math.abs(bDate.getTime() - due.getTime());
+        } catch {
+          return 0;
+        }
+      });
+
+      // 1. Prioritize exact/close single transaction amount match (within 1,000 won)
+      const singleMatch = clientTxs.find(t => Math.abs(t.amount - collection.amount) <= 1000);
+      if (singleMatch) {
+        const tId = `${singleMatch.date}-${singleMatch.client}-${singleMatch.amount}`;
         matchedTransactionIds.add(tId);
         matchingSuggestions.push({
           expected: collection,
-          actual: match
+          actual: singleMatch,
+          actuals: [singleMatch]
         });
+      } else {
+        // 2. Look for subset of clientTxs that sums to collection.amount within tolerance (1,000 won)
+        const subset = findSubsetSum(clientTxs, collection.amount, 1000);
+        if (subset && subset.length > 0) {
+          const totalAmount = subset.reduce((sum, tx) => sum + tx.amount, 0);
+          for (const t of subset) {
+            const tId = `${t.date}-${t.client}-${t.amount}`;
+            matchedTransactionIds.add(tId);
+          }
+
+          // Pick the latest transaction date as the representative date for actual Date
+          const latestTx = subset.reduce((latest, tx) => tx.date > latest.date ? tx : latest, subset[0]);
+
+          matchingSuggestions.push({
+            expected: collection,
+            // Synthesize the main 'actual' object for backward compatibility
+            actual: {
+              date: latestTx.date,
+              client: subset[0].client,
+              amount: totalAmount,
+              type: '입금'
+            },
+            actuals: subset
+          });
+        }
       }
     }
 

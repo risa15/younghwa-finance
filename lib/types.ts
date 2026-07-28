@@ -69,6 +69,7 @@ export interface ExpectedCollection {
 export interface MatchingSuggestion {
   expected: ExpectedCollection;
   actual: CashTransaction;
+  actuals?: CashTransaction[];
 }
 
 // 대시보드 API 응답 데이터 통합 구조

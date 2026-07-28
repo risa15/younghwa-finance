@@ -13,7 +13,7 @@ const MOCK_CASH_TRANSACTIONS: CashTransaction[] = [
   { date: '2026-06-02', client: '현대스틸', type: '출금', amount: 12000000, memo: '원자재 구매 대금' },
   { date: '2026-06-03', client: '에스원', type: '출금', amount: 450000, memo: '보안 경비 용역비' },
   { date: '2026-06-05', client: '진아로지스틱스㈜', type: '입금', amount: 12300000, memo: '물류 대금 입금', category: '매출수금' },
-  { date: '2026-06-08', client: '진아로지스틱스㈜', type: '입금', amount: 1452550, memo: '미수금 일부 입금', category: '매출수금' },
+  { date: '2026-06-08', client: '진아로지스틱스㈜', type: '입금', amount: 2700000, memo: '미수금 일부 입금 (분할 납부 테스트용)', category: '매출수금' },
   { date: '2026-06-08', client: '배한근(레드캣)', type: '입금', amount: 2482128, memo: '포장재 납품 대금', category: '매출수금' },
   { date: '2026-06-08', client: '임직원 급여', type: '출금', amount: 45000000, memo: '6월 급여 선지급분' },
   { date: '2026-06-09', client: '세무법인 한빛', type: '출금', amount: 1200000, memo: '기장 세무 대리 수수료' },
@@ -378,6 +378,7 @@ const MOCK_EXPECTED_COLLECTIONS: ExpectedCollection[] = [
   { regDate: '2026-06-01', client: '미나비주식회사', dueDate: '2026-06-16', amount: 2567400, actualDate: '2026-06-16' },
   { regDate: '2026-06-01', client: '영화포장(본사)', dueDate: '2026-06-01', amount: 150000000, actualDate: '2026-06-01' },
   // 미수 및 연체/예정 건
+  { regDate: '2026-06-01', client: '진아로지스틱스㈜', dueDate: '2026-06-16', amount: 15000000, remarks: '분할 입금 매칭 테스트' },
   { regDate: '2026-06-01', client: '(주)대영패키지', dueDate: '2026-06-20', amount: 12500000, depositorName: '대영패키지(김대표)', remarks: '수금 예정' },
   { regDate: '2026-06-01', client: '삼화제지', dueDate: '2026-06-25', amount: 8500000, remarks: '수금 대기' },
   { regDate: '2026-06-01', client: '유닉스 코퍼레이션', dueDate: '2026-06-14', amount: 4200000, remarks: '연체 상태 건' },
