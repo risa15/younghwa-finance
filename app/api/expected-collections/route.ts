@@ -272,13 +272,10 @@ export async function GET(request: NextRequest) {
     const matchedTransactionIds = new Set<string>();
 
     for (const collection of unpaidCollections) {
-      // Find all unused deposit transactions from this client within +/- 30 days
-      const clientTxs = depositTransactions.filter(t => {
+      // Find all unused deposit transactions within +/- 30 days of due date
+      const eligibleTxs = depositTransactions.filter(t => {
         const tId = `${t.date}-${t.client}-${t.amount}`;
         if (matchedTransactionIds.has(tId)) return false;
-
-        const nameMatched = isNameMatch(collection.client, collection.depositorName, t.client);
-        if (!nameMatched) return false;
 
         try {
           const txDate = parseDateStr(t.date);
@@ -291,53 +288,71 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Sort clientTxs by proximity to collection.dueDate
-      clientTxs.sort((a, b) => {
-        try {
-          const aDate = parseDateStr(a.date);
-          const bDate = parseDateStr(b.date);
-          const due = parseDateStr(collection.dueDate);
-          return Math.abs(aDate.getTime() - due.getTime()) - Math.abs(bDate.getTime() - due.getTime());
-        } catch {
-          return 0;
-        }
-      });
+      // Split eligibleTxs into those with matching names and those with different names
+      const nameMatchedTxs = eligibleTxs.filter(t => isNameMatch(collection.client, collection.depositorName, t.client));
+      const differentNameTxs = eligibleTxs.filter(t => !isNameMatch(collection.client, collection.depositorName, t.client));
 
-      // 1. Prioritize exact/close single transaction amount match (within 1,000 won)
-      const singleMatch = clientTxs.find(t => Math.abs(t.amount - collection.amount) <= 1000);
-      if (singleMatch) {
-        const tId = `${singleMatch.date}-${singleMatch.client}-${singleMatch.amount}`;
+      // Sort both arrays by proximity to collection.dueDate
+      const sortByProximity = (txs: any[]) => {
+        txs.sort((a, b) => {
+          try {
+            const aDate = parseDateStr(a.date);
+            const bDate = parseDateStr(b.date);
+            const due = parseDateStr(collection.dueDate);
+            return Math.abs(aDate.getTime() - due.getTime()) - Math.abs(bDate.getTime() - due.getTime());
+          } catch {
+            return 0;
+          }
+        });
+      };
+      sortByProximity(nameMatchedTxs);
+      sortByProximity(differentNameTxs);
+
+      // 1. First priority: Single transaction with MATCHING NAME (within tolerance)
+      const singleNameMatch = nameMatchedTxs.find(t => Math.abs(t.amount - collection.amount) <= 1000);
+      if (singleNameMatch) {
+        const tId = `${singleNameMatch.date}-${singleNameMatch.client}-${singleNameMatch.amount}`;
         matchedTransactionIds.add(tId);
         matchingSuggestions.push({
           expected: collection,
-          actual: singleMatch,
-          actuals: [singleMatch]
+          actual: singleNameMatch,
+          actuals: [singleNameMatch]
         });
-      } else {
-        // 2. Look for subset of clientTxs that sums to collection.amount within tolerance (1,000 won)
-        const subset = findSubsetSum(clientTxs, collection.amount, 1000);
-        if (subset && subset.length > 0) {
-          const totalAmount = subset.reduce((sum, tx) => sum + tx.amount, 0);
-          for (const t of subset) {
-            const tId = `${t.date}-${t.client}-${t.amount}`;
-            matchedTransactionIds.add(tId);
-          }
+        continue;
+      }
 
-          // Pick the latest transaction date as the representative date for actual Date
-          const latestTx = subset.reduce((latest, tx) => tx.date > latest.date ? tx : latest, subset[0]);
-
-          matchingSuggestions.push({
-            expected: collection,
-            // Synthesize the main 'actual' object for backward compatibility
-            actual: {
-              date: latestTx.date,
-              client: subset[0].client,
-              amount: totalAmount,
-              type: '입금'
-            },
-            actuals: subset
-          });
+      // 2. Second priority: Subset sum with MATCHING NAME (within tolerance)
+      const nameSubset = findSubsetSum(nameMatchedTxs, collection.amount, 1000);
+      if (nameSubset && nameSubset.length > 0) {
+        const totalAmount = nameSubset.reduce((sum, tx) => sum + tx.amount, 0);
+        for (const t of nameSubset) {
+          const tId = `${t.date}-${t.client}-${t.amount}`;
+          matchedTransactionIds.add(tId);
         }
+        const latestTx = nameSubset.reduce((latest, tx) => tx.date > latest.date ? tx : latest, nameSubset[0]);
+        matchingSuggestions.push({
+          expected: collection,
+          actual: {
+            date: latestTx.date,
+            client: nameSubset[0].client,
+            amount: totalAmount,
+            type: '입금'
+          },
+          actuals: nameSubset
+        });
+        continue;
+      }
+
+      // 3. Third priority: Single transaction with DIFFERENT NAME (within tolerance)
+      const singleDiffNameMatch = differentNameTxs.find(t => Math.abs(t.amount - collection.amount) <= 1000);
+      if (singleDiffNameMatch) {
+        const tId = `${singleDiffNameMatch.date}-${singleDiffNameMatch.client}-${singleDiffNameMatch.amount}`;
+        matchedTransactionIds.add(tId);
+        matchingSuggestions.push({
+          expected: collection,
+          actual: singleDiffNameMatch,
+          actuals: [singleDiffNameMatch]
+        });
       }
     }
 
