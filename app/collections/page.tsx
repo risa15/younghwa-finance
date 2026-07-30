@@ -742,14 +742,17 @@ export default function CollectionsPage() {
                             )}
                           </td>
                           <td className="px-4 py-4 text-center">{statusBadge}</td>
-                          <td className="px-4 py-4 max-w-[200px] truncate group">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className={col.remarks ? "text-slate-700 font-semibold" : "text-slate-350 italic"}>
+                          <td className="px-4 py-4 max-w-[250px] group">
+                            <div className="flex items-start justify-between gap-1.5">
+                              <span 
+                                className={col.remarks ? "text-slate-750 font-semibold whitespace-pre-wrap break-all leading-normal text-[11px]" : "text-slate-350 italic text-[11px]"}
+                                title={col.remarks}
+                              >
                                 {col.remarks || '등록된 비고 없음'}
                               </span>
                               <button
                                 onClick={() => handleEditRemarks(col.rowIndex, col.client, col.remarks || '', col.actualDate)}
-                                className="text-slate-400 hover:text-brand-emerald opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100 shrink-0 ml-1"
+                                className="text-slate-400 hover:text-brand-emerald opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100 shrink-0 ml-1 mt-0.5"
                                 title="비고 수정"
                               >
                                 <Edit className="h-3.5 w-3.5" />
