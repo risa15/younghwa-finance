@@ -50,6 +50,7 @@ export default function CollectionsPage() {
   const [expectedLoading, setExpectedLoading] = useState<boolean>(false);
   const [expectedError, setExpectedError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showOnlyWithRemarks, setShowOnlyWithRemarks] = useState<boolean>(false);
 
 
   // Fetch transactions
@@ -203,11 +204,11 @@ export default function CollectionsPage() {
   };
 
   // Sorting states
-  const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status'>('dueDate');
+  const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status' | 'remarks'>('dueDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Toggle sort direction or field
-  const toggleSort = (field: 'dueDate' | 'actualDate' | 'status') => {
+  const toggleSort = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks') => {
     if (sortBy === field) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -235,6 +236,9 @@ export default function CollectionsPage() {
       const term = searchTerm.toLowerCase();
       list = list.filter(c => c.client.toLowerCase().includes(term));
     }
+    if (showOnlyWithRemarks) {
+      list = list.filter(c => c.remarks && c.remarks.trim() !== '');
+    }
     list.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'dueDate') {
@@ -245,14 +249,18 @@ export default function CollectionsPage() {
         comparison = aDate.localeCompare(bDate);
       } else if (sortBy === 'status') {
         comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
+      } else if (sortBy === 'remarks') {
+        const aRemarks = a.remarks || '';
+        const bRemarks = b.remarks || '';
+        comparison = aRemarks.localeCompare(bRemarks);
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
     });
     return list;
-  }, [expectedCollections, sortBy, sortOrder, searchTerm]);
+  }, [expectedCollections, sortBy, sortOrder, searchTerm, showOnlyWithRemarks]);
 
-  const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status') => {
+  const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks') => {
     if (sortBy !== field) {
       return <ArrowUpDown className="h-3 w-3 text-slate-350 shrink-0" />;
     }
@@ -280,6 +288,10 @@ export default function CollectionsPage() {
       const term = searchTerm.toLowerCase();
       onlyDeposits = onlyDeposits.filter(t => t.client.toLowerCase().includes(term));
     }
+
+    if (showOnlyWithRemarks) {
+      onlyDeposits = onlyDeposits.filter(t => t.memo && t.memo.trim() !== '');
+    }
     
     if (viewType === 'daily') {
       return onlyDeposits.filter(t => t.date === selectedDate);
@@ -291,7 +303,7 @@ export default function CollectionsPage() {
         return ty === year && tm === month;
       });
     }
-  }, [transactions, viewType, selectedDate, searchTerm]);
+  }, [transactions, viewType, selectedDate, searchTerm, showOnlyWithRemarks]);
 
   // Sum of filtered collections
   const totalAmount = useMemo(() => {
@@ -426,27 +438,41 @@ export default function CollectionsPage() {
         </button>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar & Filters */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="h-4 w-4 text-slate-400" />
-          </span>
-          <input
-            type="text"
-            placeholder="거래처명 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-emerald focus:border-brand-emerald shadow-sm bg-white text-slate-800 placeholder-slate-400"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-3 w-full">
+          <div className="relative w-full sm:max-w-xs">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Search className="h-4 w-4 text-slate-400" />
+            </span>
+            <input
+              type="text"
+              placeholder="거래처명 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-emerald focus:border-brand-emerald shadow-sm bg-white text-slate-800 placeholder-slate-400"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowOnlyWithRemarks(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all duration-200 shadow-sm h-9 ${
+              showOnlyWithRemarks
+                ? 'bg-brand-emerald/10 text-brand-emerald border-brand-emerald/30 font-bold'
+                : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
+            }`}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            <span>비고/메모가 있는 건만 보기</span>
+          </button>
         </div>
       </div>
 
@@ -646,7 +672,15 @@ export default function CollectionsPage() {
                         {renderSortIcon('status')}
                       </div>
                     </th>
-                    <th className="px-4 py-3 min-w-[150px]">비고 (체크 포인트)</th>
+                    <th 
+                      className="px-4 py-3 min-w-[150px] cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => toggleSort('remarks')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>비고 (체크 포인트)</span>
+                        {renderSortIcon('remarks')}
+                      </div>
+                    </th>
                     <th className="px-4 py-3">장부 대조 상세 정보</th>
                   </tr>
                 </thead>
@@ -748,7 +782,7 @@ export default function CollectionsPage() {
                                 className={col.remarks ? "text-slate-750 font-semibold whitespace-pre-wrap break-all leading-normal text-[11px]" : "text-slate-350 italic text-[11px]"}
                                 title={col.remarks}
                               >
-                                {col.remarks || '등록된 비고 없음'}
+                                {col.remarks || ''}
                               </span>
                               <button
                                 onClick={() => handleEditRemarks(col.rowIndex, col.client, col.remarks || '', col.actualDate)}
