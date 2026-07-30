@@ -14,7 +14,10 @@ import {
   Clock,
   ArrowRight,
   RefreshCw,
-  ArrowUpDown
+  ArrowUpDown,
+  Search,
+  X,
+  Edit
 } from 'lucide-react';
 import { CashTransaction, ExpectedCollection, MatchingSuggestion } from '@/lib/types';
 import MatchingSuggestions from '@/components/MatchingSuggestions';
@@ -46,6 +49,7 @@ export default function CollectionsPage() {
   const [matchingSuggestions, setMatchingSuggestions] = useState<MatchingSuggestion[]>([]);
   const [expectedLoading, setExpectedLoading] = useState<boolean>(false);
   const [expectedError, setExpectedError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
 
   // Fetch transactions
@@ -168,6 +172,36 @@ export default function CollectionsPage() {
     }
   };
 
+  // Handle editing remarks only
+  const handleEditRemarks = async (rowIndex: number, clientName: string, currentRemarks: string, currentActualDate?: string) => {
+    const remarksInput = window.prompt(`[${clientName}] 건의 비고(체크 포인트)를 등록/수정해주세요:`, currentRemarks);
+    if (remarksInput === null) return;
+
+    const remarks = remarksInput.trim();
+    const actualDate = currentActualDate || '';
+
+    try {
+      setExpectedLoading(true);
+      const response = await fetch('/api/expected-collections/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndex, actualDate, remarks })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '비고 수정 중 오류가 발생했습니다.');
+      }
+
+      alert('비고가 성공적으로 업데이트되었습니다.');
+      fetchExpectedData();
+    } catch (err: any) {
+      alert(err.message || '비고 수정에 실패했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
+
   // Sorting states
   const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status'>('dueDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -196,7 +230,11 @@ export default function CollectionsPage() {
 
   // Memoized sorted collections
   const sortedExpectedCollections = useMemo(() => {
-    const list = [...expectedCollections];
+    let list = [...expectedCollections];
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(c => c.client.toLowerCase().includes(term));
+    }
     list.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'dueDate') {
@@ -212,7 +250,7 @@ export default function CollectionsPage() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
     return list;
-  }, [expectedCollections, sortBy, sortOrder]);
+  }, [expectedCollections, sortBy, sortOrder, searchTerm]);
 
   const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status') => {
     if (sortBy !== field) {
@@ -233,10 +271,15 @@ export default function CollectionsPage() {
   const filteredCollections = useMemo(() => {
     if (transactions.length === 0) return [];
     
-    const onlyDeposits = transactions.filter(t => 
+    let onlyDeposits = transactions.filter(t => 
       t.type === '입금' && 
       (t.category?.trim() === '매출수금' || t.category?.trim() === '어음입금')
     );
+
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      onlyDeposits = onlyDeposits.filter(t => t.client.toLowerCase().includes(term));
+    }
     
     if (viewType === 'daily') {
       return onlyDeposits.filter(t => t.date === selectedDate);
@@ -248,7 +291,7 @@ export default function CollectionsPage() {
         return ty === year && tm === month;
       });
     }
-  }, [transactions, viewType, selectedDate]);
+  }, [transactions, viewType, selectedDate, searchTerm]);
 
   // Sum of filtered collections
   const totalAmount = useMemo(() => {
@@ -383,6 +426,30 @@ export default function CollectionsPage() {
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="relative w-full sm:max-w-xs">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Search className="h-4 w-4 text-slate-400" />
+          </span>
+          <input
+            type="text"
+            placeholder="거래처명 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-emerald focus:border-brand-emerald shadow-sm bg-white text-slate-800 placeholder-slate-400"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {error && activeSubTab === 'actual' && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs mb-4">
           ⚠️ {error}
@@ -448,7 +515,7 @@ export default function CollectionsPage() {
                   ) : (
                     <tr>
                       <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={5}>
-                        지정된 일자에 등록된 수금(입금) 내역이 없습니다.
+                        {searchTerm ? '검색 조건에 맞는 수금(입금) 내역이 없습니다.' : '지정된 일자에 등록된 수금(입금) 내역이 없습니다.'}
                       </td>
                     </tr>
                   )}
@@ -579,6 +646,7 @@ export default function CollectionsPage() {
                         {renderSortIcon('status')}
                       </div>
                     </th>
+                    <th className="px-4 py-3 min-w-[150px]">비고 (체크 포인트)</th>
                     <th className="px-4 py-3">장부 대조 상세 정보</th>
                   </tr>
                 </thead>
@@ -634,7 +702,7 @@ export default function CollectionsPage() {
 
                       return (
                         <tr 
-                          key={`${col.client}-${idx}`} 
+                           key={`${col.client}-${idx}`} 
                           className={`hover:bg-slate-50/50 transition-colors duration-150 ${statusRowClass}`}
                         >
                           <td className="px-4 py-4 font-mono text-slate-500">{col.dueDate}</td>
@@ -674,6 +742,20 @@ export default function CollectionsPage() {
                             )}
                           </td>
                           <td className="px-4 py-4 text-center">{statusBadge}</td>
+                          <td className="px-4 py-4 max-w-[200px] truncate group">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={col.remarks ? "text-slate-700 font-semibold" : "text-slate-350 italic"}>
+                                {col.remarks || '등록된 비고 없음'}
+                              </span>
+                              <button
+                                onClick={() => handleEditRemarks(col.rowIndex, col.client, col.remarks || '', col.actualDate)}
+                                className="text-slate-400 hover:text-brand-emerald opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100 shrink-0 ml-1"
+                                title="비고 수정"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-4 py-4 text-[11px]">
                             {col.matchDetails ? (
                               <div className="space-y-1">
@@ -702,8 +784,8 @@ export default function CollectionsPage() {
                     })
                   ) : (
                     <tr>
-                      <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={7}>
-                        이번 달에 등록된 수금 예정 내역이 없습니다.
+                      <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={8}>
+                        {searchTerm ? '검색 조건에 맞는 수금 예정 내역이 없습니다.' : '이번 달에 등록된 수금 예정 내역이 없습니다.'}
                       </td>
                     </tr>
                   )}
