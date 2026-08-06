@@ -221,7 +221,16 @@ export default function CollectionsPage() {
   const getStatusPriority = (status: string): number => {
     switch (status) {
       case '연체': return 1;
+      case '수동완료': return 5.5;
       case '수동완료':
+                          statusBadge = (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center gap-1 w-fit mx-auto">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>직접확정</span>
+                            </span>
+                          );
+                          break;
+                        case '수동완료':
                           statusBadge = (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center gap-1 w-fit mx-auto">
                               <CheckCircle2 className="h-3 w-3" />
