@@ -189,7 +189,8 @@ export async function GET(request: NextRequest) {
     const processedCollections = expectedRes.data.map(c => {
       // 1. If not collected yet
       if (!c.actualDate || c.actualDate.trim() === '') {
-        const today = parseDateStr(requestedDate);
+        const kstTodayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().substring(0, 10);
+        const today = parseDateStr(kstTodayStr);
         const due = parseDateStr(c.dueDate);
         const isOverdue = today > due;
         
