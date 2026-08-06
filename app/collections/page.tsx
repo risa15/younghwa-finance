@@ -221,7 +221,15 @@ export default function CollectionsPage() {
   const getStatusPriority = (status: string): number => {
     switch (status) {
       case '연체': return 1;
-      case '불일치_내역없음': return 2;
+      case '수동완료':
+                          statusBadge = (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center gap-1 w-fit mx-auto">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>직접확정</span>
+                            </span>
+                          );
+                          break;
+                        case '불일치_내역없음': return 2;
       case '불일치_금액오차': return 3;
       case '대기': return 4;
       case '완료': return 5;
@@ -597,10 +605,10 @@ export default function CollectionsPage() {
               </span>
             </div>
             <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm text-xs">
-              <span className="text-[10px] text-rose-500 font-bold block">금액 불일치 / 미수 금액</span>
+              <span className="text-[10px] text-rose-500 font-bold block">미수 금액</span>
               <span className="font-mono font-black text-rose-600 text-base mt-1.5 block">
                 {expectedCollections
-                  .filter(c => c.status !== '완료')
+                  .filter(c => !c.actualDate || c.actualDate.trim() === '')
                   .reduce((sum, c) => sum + c.amount, 0).toLocaleString()}원
               </span>
             </div>

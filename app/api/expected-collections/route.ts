@@ -32,16 +32,94 @@ function cleanName(name: string): string {
 }
 
 // Check if names match fuzzily or via designated depositor name
+const CUSTOM_NAME_MAPPINGS: Record<string, string> = {
+  "변진석(삼신)": "주식회사 삼신홀딩스",
+  "(유)이티아이컴퍼니": "유한회사 이티아이컴퍼니",
+  "신성아": "에스알실리콘테크",
+  "배한근(레드캣)": "레드캣(REDCAT)",
+  "（주）제일프라스틱": "(주)제일플라스틱",
+  "농업회사법인주식회": "농업회사법인 주식회사 콩콩농원",
+  "최성근": "율리나컴퍼니",
+  "doc(HDP)": "에이치디피(HDP)",
+  "윤근수": "그레이스캠핑",
+  "자연앤푸드": "자연&푸드",
+  "박진구": "벨류텍",
+  "이익재(수현산": "수현산업",
+  "(주)건영피앤엠": "(주)건영피엔엠",
+  "유춘수": "교동정미소",
+  "（주）머큐리코퍼레이": "머큐리코퍼레이션",
+  "김경호(쓰리원": "쓰리원테크",
+  "（주）디에프에스컴퍼": "(주) 디에프에스컴퍼니",
+  "윤상태": "케이와이씨",
+  "JS정공박진성": "제이에스정공",
+  "김병진(대성푸드시스": "대성푸드시스템",
+  "교동들녘(최복환)": "농업회사법인 주식회사 교동들녘",
+  "(주)씨제이엔컴퍼니": "주식회사 씨제이 컴퍼니",
+  "엄규순": "신화엔지니어링",
+  "김미숙(그린테": "그린테크",
+  "이정미(서밋산": "서밋산업",
+  "김종범": "하나테크",
+  "자연（주）": "농업회사법인 자연 주식회사",
+  "정문철": "알에스케미칼",
+  "（주）오가그레인": "농업회사법인 주식회사 오가그레인",
+  "오관종(미래패키": "미래패키지",
+  "김순득": "이레산업",
+  "이재원": "제이원코스메틱",
+  "블루펜주식회사": "에이치케이메디",
+  "(유)프리티스킨인터": "(유한)프리티스킨인터내셔널",
+  "㈜알비씨앤에프": "주식회사 알비씨엔에프"
+};
+
 function isNameMatch(expectedName: string, depositorName: string | undefined, actualTxName: string): boolean {
-  const cleanTx = cleanName(actualTxName);
+  let resolvedTx = actualTxName;
+  let resolvedExp = expectedName;
+  let resolvedDep = depositorName;
+
+  for (const [key, val] of Object.entries(CUSTOM_NAME_MAPPINGS)) {
+    if (actualTxName.trim() === key) {
+      resolvedTx = val;
+    }
+    if (expectedName.trim() === key) {
+      resolvedExp = val;
+    }
+    if (depositorName && depositorName.trim() === key) {
+      resolvedDep = val;
+    }
+  }
+
+  const cleanTx = cleanName(resolvedTx);
   
-  if (depositorName && depositorName.trim()) {
-    const cleanDep = cleanName(depositorName);
+  if (resolvedDep && resolvedDep.trim()) {
+    const cleanDep = cleanName(resolvedDep);
     if (cleanTx.includes(cleanDep) || cleanDep.includes(cleanTx)) return true;
   }
   
-  const cleanExp = cleanName(expectedName);
+  const cleanExp = cleanName(resolvedExp);
   if (cleanTx.includes(cleanExp) || cleanExp.includes(cleanTx)) return true;
+
+  // Fallback: Strip common banking and branch keywords if they prevent matching
+  const stripBankKeywords = (s: string) => {
+    let res = s;
+    const keywords = ['농협', '은행', '지점', '본점', '축협', '수협', '신협'];
+    for (const kw of keywords) {
+      if (res.includes(kw)) {
+        const temp = res.replace(new RegExp(kw, 'g'), '');
+        if (temp.length >= 2) {
+          res = temp;
+        }
+      }
+    }
+    return res;
+  };
+
+  const strippedTx = stripBankKeywords(cleanTx);
+  const strippedExp = stripBankKeywords(cleanExp);
+
+  if (strippedTx !== cleanTx || strippedExp !== cleanExp) {
+    if (strippedTx.includes(strippedExp) || strippedExp.includes(strippedTx)) {
+      return true;
+    }
+  }
 
   // Fuzzy matching for parenthesized names (e.g. "이익재(수현산" vs "수현산업")
   // Extract parts inside and outside parentheses (length >= 2)
@@ -147,12 +225,13 @@ export async function GET(request: NextRequest) {
         // Case: No matching transaction found in ledger
         return {
           ...c,
-          status: '불일치_내역없음',
+          status: '수동완료',
           matchDetails: {
-            actualAmount: 0,
-            actualDate: null,
-            difference: -c.amount,
-            message: '입출금 장부에서 해당 날짜 부근의 입금 내역을 찾을 수 없습니다.'
+            actualAmount: c.amount,
+            actualDate: actualDepositDate,
+            actualClient: c.client,
+            difference: 0,
+            message: '사용자가 직접 수금을 확정했습니다. (장부 미매칭)'
           }
         };
       }
