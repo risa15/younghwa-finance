@@ -749,7 +749,19 @@ case '수동완료':
                           className={`hover:bg-slate-50/50 transition-colors duration-150 ${statusRowClass}`}
                         >
                           <td className="px-4 py-4 font-mono text-slate-500">{col.dueDate}</td>
-                          <td className="px-4 py-4 text-slate-800 font-bold">{col.client}</td>
+                          <td className="px-4 py-4 text-slate-800 font-bold">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{col.client}</span>
+                              {col.isCarriedOver && (
+                                <span 
+                                  className="px-1 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-100 shadow-sm shrink-0" 
+                                  title="이전 달에 연체되어 이월된 수금 건입니다."
+                                >
+                                  이월
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-4 text-right font-mono font-bold text-slate-800">
                             {col.amount.toLocaleString()} 원
                           </td>

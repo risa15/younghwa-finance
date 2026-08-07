@@ -336,8 +336,20 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Filter by the month of requestedDate
-    const filteredCollections = processedCollections.filter(c => c.dueDate.startsWith(targetMonthStr));
+    // Filter by the month of requestedDate OR prior month overdues
+    const filteredCollections = processedCollections
+      .filter(c => {
+        const isCurrentMonth = c.dueDate.startsWith(targetMonthStr);
+        const isPriorMonthOverdue = c.dueDate < targetMonthStr && c.status === '연체';
+        return isCurrentMonth || isPriorMonthOverdue;
+      })
+      .map(c => {
+        const isCurrentMonth = c.dueDate.startsWith(targetMonthStr);
+        return {
+          ...c,
+          isCarriedOver: !isCurrentMonth
+        };
+      });
 
     // Calculate smart matching suggestions for unpaid expected collections
     const unpaidCollections = expectedRes.data.filter(
