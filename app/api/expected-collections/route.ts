@@ -184,6 +184,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const isDemo = expectedRes.isDemo || transactionsRes.isDemo;
+    const alreadyMatchedTxIds = new Set<string>();
 
     // We want to process expected collections for cross-checking
     const processedCollections = expectedRes.data.map(c => {
@@ -254,6 +255,10 @@ export async function GET(request: NextRequest) {
       if (exactSingleMatch) {
         const difference = exactSingleMatch.amount - c.amount;
         const diffText = difference === 0 ? '' : ` (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원)`;
+        
+        // Mark this transaction as already matched
+        alreadyMatchedTxIds.add(`${exactSingleMatch.date}-${exactSingleMatch.client}-${exactSingleMatch.amount}`);
+
         return {
           ...c,
           status: '완료',
@@ -275,6 +280,12 @@ export async function GET(request: NextRequest) {
         const diffText = difference === 0 ? '' : ` (차액: ${difference > 0 ? '+' : ''}${difference.toLocaleString()}원)`;
         const latestTx = subset.reduce((latest, tx) => tx.date > latest.date ? tx : latest, subset[0]);
         const matchedDetailsList = subset.map(tx => `${tx.amount.toLocaleString()}원(${tx.date.substring(5)})`).join(' + ');
+        
+        // Mark all transactions in subset as matched
+        for (const t of subset) {
+          alreadyMatchedTxIds.add(`${t.date}-${t.client}-${t.amount}`);
+        }
+
         return {
           ...c,
           status: '완료',
@@ -307,6 +318,11 @@ export async function GET(request: NextRequest) {
         const latestTx = closeTxs.reduce((latest, tx) => tx.date > latest.date ? tx : latest, closeTxs[0]);
         const sumDetailsList = closeTxs.map(tx => `${tx.amount.toLocaleString()}원(${tx.date.substring(5)})`).join(' + ');
         
+        // Mark all close transactions as matched
+        for (const t of closeTxs) {
+          alreadyMatchedTxIds.add(`${t.date}-${t.client}-${t.amount}`);
+        }
+
         return {
           ...c,
           status: '불일치_금액오차',
@@ -323,6 +339,10 @@ export async function GET(request: NextRequest) {
       // 2.4 Fallback 2: Pick the single closest transaction within 30 days
       const closestTx = matchingTxs[0];
       const difference = closestTx.amount - c.amount;
+      
+      // Mark closest transaction as matched
+      alreadyMatchedTxIds.add(`${closestTx.date}-${closestTx.client}-${closestTx.amount}`);
+
       return {
         ...c,
         status: '불일치_금액오차',
@@ -394,8 +414,13 @@ export async function GET(request: NextRequest) {
       c => !c.actualDate || c.actualDate.trim().length === 0
     );
 
+    // Filter out already matched cash ledger entries from deposit transactions so they won't be suggested again
     const depositTransactions = transactionsRes.data.filter(
-      t => t.type === '입금'
+      t => {
+        if (t.type !== '입금') return false;
+        const tId = `${t.date}-${t.client}-${t.amount}`;
+        return !alreadyMatchedTxIds.has(tId);
+      }
     );
 
     const matchingSuggestions: any[] = [];
