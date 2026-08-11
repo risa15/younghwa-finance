@@ -375,7 +375,9 @@ export async function GET(request: NextRequest) {
           } else if (!itemHasRemarks && existingHasRemarks) {
             keepNew = false;
           } else {
-            if (item.rowIndex < existing.rowIndex) {
+            const aIndex = item.rowIndex ?? 0;
+            const bIndex = existing.rowIndex ?? 0;
+            if (aIndex < bIndex) {
               keepNew = true;
             }
           }
