@@ -351,6 +351,42 @@ export async function GET(request: NextRequest) {
         };
       });
 
+    // De-duplicate filtered collections by (dueDate, client, amount)
+    const uniqueCollectionsMap = new Map<string, any>();
+    for (const item of filteredCollections) {
+      const key = `${item.dueDate}_${item.client}_${item.amount}`;
+      const existing = uniqueCollectionsMap.get(key);
+      if (!existing) {
+        uniqueCollectionsMap.set(key, item);
+      } else {
+        // Priority 1: Has actualDate
+        // Priority 2: Has remarks
+        // Priority 3: Keep the one with smaller rowIndex (original record)
+        let keepNew = false;
+        if (item.actualDate && !existing.actualDate) {
+          keepNew = true;
+        } else if (!item.actualDate && existing.actualDate) {
+          keepNew = false;
+        } else {
+          const itemHasRemarks = item.remarks && item.remarks.trim().length > 0;
+          const existingHasRemarks = existing.remarks && existing.remarks.trim().length > 0;
+          if (itemHasRemarks && !existingHasRemarks) {
+            keepNew = true;
+          } else if (!itemHasRemarks && existingHasRemarks) {
+            keepNew = false;
+          } else {
+            if (item.rowIndex < existing.rowIndex) {
+              keepNew = true;
+            }
+          }
+        }
+        if (keepNew) {
+          uniqueCollectionsMap.set(key, item);
+        }
+      }
+    }
+    const finalCollections = Array.from(uniqueCollectionsMap.values());
+
     // Calculate smart matching suggestions for unpaid expected collections
     const unpaidCollections = expectedRes.data.filter(
       c => !c.actualDate || c.actualDate.trim().length === 0
@@ -449,7 +485,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      data: filteredCollections,
+      data: finalCollections,
       matchingSuggestions,
       isDemo
     });
