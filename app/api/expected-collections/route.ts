@@ -427,7 +427,7 @@ export async function GET(request: NextRequest) {
     const matchedTransactionIds = new Set<string>();
 
     for (const collection of unpaidCollections) {
-      // Find all unused deposit transactions within +/- 30 days of due date
+      // Find all unused deposit transactions within +/- 90 days of due date
       const eligibleTxs = depositTransactions.filter(t => {
         const tId = `${t.date}-${t.client}-${t.amount}`;
         if (matchedTransactionIds.has(tId)) return false;
@@ -437,7 +437,7 @@ export async function GET(request: NextRequest) {
           const due = parseDateStr(collection.dueDate);
           const diffTime = Math.abs(txDate.getTime() - due.getTime());
           const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 30; // within 30 days of due date
+          return diffDays <= 90; // within 90 days of due date
         } catch {
           return false;
         }
