@@ -4,7 +4,7 @@ import { updateExpectedCollection } from '@/lib/sheets';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { rowIndex, actualDate, amount, remarks } = body;
+    const { rowIndex, actualDate, amount, remarks, dueDate } = body;
 
     if (rowIndex === undefined || actualDate === undefined || actualDate === null) {
       return NextResponse.json(
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await updateExpectedCollection(rowIdx, actualDate, parsedAmount, remarks);
+    const result = await updateExpectedCollection(rowIdx, actualDate, parsedAmount, remarks, dueDate);
 
     if (!result.success) {
       return NextResponse.json(

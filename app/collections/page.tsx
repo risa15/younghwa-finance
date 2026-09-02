@@ -203,6 +203,60 @@ export default function CollectionsPage() {
     }
   };
 
+  // Handle updating due date (입금예정일 변경 - 거래처 결재조건 변경 등)
+  const handleUpdateDueDate = async (
+    rowIndex: number, 
+    clientName: string, 
+    currentDueDate: string, 
+    currentRemarks?: string, 
+    currentActualDate?: string
+  ) => {
+    const dueDateInput = window.prompt(
+      `[${clientName}] 건의 새 입금예정일(수금예정일)을 입력해주세요 (YYYY-MM-DD):`, 
+      currentDueDate
+    );
+    if (dueDateInput === null) return;
+    
+    const newDueDate = dueDateInput.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate)) {
+      alert('올바른 날짜 형식(YYYY-MM-DD)으로 입력해주세요. 예: 2026-09-30');
+      return;
+    }
+
+    const defaultRemarks = currentRemarks || '거래처 결재조건 변경';
+    const remarksInput = window.prompt(
+      `[${clientName}] 건의 변경 사유(비고)를 입력/수정해주세요:`, 
+      defaultRemarks
+    );
+    const remarks = remarksInput !== null ? remarksInput.trim() : (currentRemarks || '');
+
+    try {
+      setExpectedLoading(true);
+      const response = await fetch('/api/expected-collections/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          rowIndex, 
+          actualDate: currentActualDate || '', 
+          dueDate: newDueDate, 
+          remarks 
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '수금예정일 변경 중 오류가 발생했습니다.');
+      }
+
+      alert(`[${clientName}] 입금예정일이 ${newDueDate}(으)로 성공적으로 변경되었습니다.`);
+      fetchExpectedData();
+    } catch (err: any) {
+      alert(err.message || '수금예정일 변경에 실패했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
+
   // Sorting states
   const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status' | 'remarks'>('dueDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -748,7 +802,18 @@ case '수동완료':
                            key={`${col.client}-${idx}`} 
                           className={`hover:bg-slate-50/50 transition-colors duration-150 ${statusRowClass}`}
                         >
-                          <td className="px-4 py-4 font-mono text-slate-500">{col.dueDate}</td>
+                          <td className="px-4 py-4 font-mono text-slate-500 group">
+                            <div className="flex items-center justify-between gap-1">
+                              <span>{col.dueDate}</span>
+                              <button
+                                onClick={() => handleUpdateDueDate(col.rowIndex, col.client, col.dueDate, col.remarks, col.actualDate)}
+                                className="text-slate-400 hover:text-indigo-600 hover:bg-slate-100 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all p-1 rounded shrink-0"
+                                title="입금예정일 변경 (결재조건 변경 등)"
+                              >
+                                <Calendar className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-4 py-4 text-slate-800 font-bold">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span>{col.client}</span>
@@ -787,13 +852,22 @@ case '수동완료':
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => handleDirectConfirm(col.rowIndex, col.client, col.amount, col.remarks)}
-                                className="px-2.5 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
-                                title="실제 수금일 직접 등록"
-                              >
-                                직접 확정
-                              </button>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <button
+                                  onClick={() => handleDirectConfirm(col.rowIndex, col.client, col.amount, col.remarks)}
+                                  className="px-2 py-1 rounded bg-slate-100 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
+                                  title="실제 수금일 직접 등록"
+                                >
+                                  직접 확정
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateDueDate(col.rowIndex, col.client, col.dueDate, col.remarks, col.actualDate)}
+                                  className="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
+                                  title="거래처 결재조건 변경 등으로 인한 입금예정일 수정"
+                                >
+                                  예정일 변경
+                                </button>
+                              </div>
                             )}
                           </td>
                           <td className="px-4 py-4 text-center">{statusBadge}</td>

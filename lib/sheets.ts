@@ -464,50 +464,52 @@ export async function updateExpectedCollection(
   rowIndex: number, 
   actualDate: string, 
   amount?: number, 
-  remarks?: string
+  remarks?: string,
+  dueDate?: string
 ): Promise<{ success: boolean; error?: string }> {
   const sheets = getSheetsClient();
   if (!sheets || !SPREADSHEET_ID) {
     // Demo mode: update in-memory MOCK_EXPECTED_COLLECTIONS
-    console.log(`[DEMO MODE] Updating expected collection at rowIndex ${rowIndex} to ${actualDate}, amount: ${amount}, remarks: ${remarks}`);
+    console.log(`[DEMO MODE] Updating expected collection at rowIndex ${rowIndex} to actualDate: ${actualDate}, amount: ${amount}, remarks: ${remarks}, dueDate: ${dueDate}`);
     const mockIdx = rowIndex - 2;
     if (mockIdx >= 0 && mockIdx < MOCK_EXPECTED_COLLECTIONS.length) {
       MOCK_EXPECTED_COLLECTIONS[mockIdx].actualDate = actualDate;
       if (amount !== undefined) MOCK_EXPECTED_COLLECTIONS[mockIdx].amount = amount;
       if (remarks !== undefined) MOCK_EXPECTED_COLLECTIONS[mockIdx].remarks = remarks;
+      if (dueDate !== undefined && dueDate.trim() !== '') MOCK_EXPECTED_COLLECTIONS[mockIdx].dueDate = dueDate;
       return { success: true };
     }
     return { success: false, error: 'Row index out of range in demo mode' };
   }
 
   try {
-    // Columns: D (amount), E (depositorName), F (actualDate), G (remarks)
-    // To avoid overwriting Column E (depositorName) which might be present, we fetch the current values first.
+    // Columns: C (dueDate), D (amount), E (depositorName), F (actualDate), G (remarks)
     const rowRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `수금예정!D${rowIndex}:G${rowIndex}`
+      range: `수금예정!C${rowIndex}:G${rowIndex}`
     });
     
     const currentValues = rowRes.data.values?.[0] || [];
-    const currentAmount = currentValues[0] || '';
-    const currentDepositorName = currentValues[1] || '';
-    const currentRemarks = currentValues[3] || '';
+    const currentDueDate = currentValues[0] || '';
+    const currentAmount = currentValues[1] || '';
+    const currentDepositorName = currentValues[2] || '';
+    const currentRemarks = currentValues[4] || '';
 
-    // Convert amount to local string (e.g. 10,000,000) or keep the current formatted string
+    const newDueDate = dueDate !== undefined && dueDate.trim() !== '' ? dueDate.trim() : currentDueDate;
     const newAmount = amount !== undefined ? amount.toLocaleString() : currentAmount;
     const newRemarks = remarks !== undefined ? remarks : currentRemarks;
 
-    const range = `수금예정!D${rowIndex}:G${rowIndex}`;
+    const range = `수금예정!C${rowIndex}:G${rowIndex}`;
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[newAmount, currentDepositorName, actualDate, newRemarks]]
+        values: [[newDueDate, newAmount, currentDepositorName, actualDate, newRemarks]]
       }
     });
 
-    console.log(`Google Sheets successfully updated at ${range} with date=${actualDate}, amount=${newAmount}, remarks=${newRemarks}`);
+    console.log(`Google Sheets successfully updated at ${range} with dueDate=${newDueDate}, actualDate=${actualDate}, amount=${newAmount}, remarks=${newRemarks}`);
     return { success: true };
   } catch (err: any) {
     console.error('Google Sheets updateExpectedCollection failed:', err);
