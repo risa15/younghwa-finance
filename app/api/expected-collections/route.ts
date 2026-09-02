@@ -364,6 +364,21 @@ export async function GET(request: NextRequest) {
       return (tYear - fYear) * 12 + (tMonth - fMonth);
     };
 
+    // Calculate unique overdue months per client for cumulative overdue tracking
+    const clientOverdueMonthsMap = new Map<string, Set<string>>();
+    for (const c of processedCollections) {
+      if (c.status === '연체' || (!c.actualDate || c.actualDate.trim() === '')) {
+        const dueMonth = c.dueDate ? c.dueDate.substring(0, 7) : '';
+        if (dueMonth && dueMonth < targetMonthStr) {
+          const cName = cleanName(c.client);
+          if (!clientOverdueMonthsMap.has(cName)) {
+            clientOverdueMonthsMap.set(cName, new Set<string>());
+          }
+          clientOverdueMonthsMap.get(cName)!.add(dueMonth);
+        }
+      }
+    }
+
     // Filter by the month of requestedDate OR prior month overdues
     const filteredCollections = processedCollections
       .filter(c => {
@@ -376,7 +391,11 @@ export async function GET(request: NextRequest) {
         let overdueMonths = 0;
         if (c.status === '연체') {
           const dueMonthStr = c.dueDate ? c.dueDate.substring(0, 7) : targetMonthStr;
-          overdueMonths = Math.max(1, getMonthDiff(dueMonthStr, targetMonthStr));
+          const singleDiff = Math.max(1, getMonthDiff(dueMonthStr, targetMonthStr));
+          const cName = cleanName(c.client);
+          const overdueSet = clientOverdueMonthsMap.get(cName);
+          const totalOverdueCount = overdueSet ? overdueSet.size : 0;
+          overdueMonths = Math.max(singleDiff, totalOverdueCount);
         }
         return {
           ...c,
