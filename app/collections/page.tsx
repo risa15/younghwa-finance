@@ -51,6 +51,7 @@ export default function CollectionsPage() {
   const [expectedError, setExpectedError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
   const [showOnlyWithRemarks, setShowOnlyWithRemarks] = useState<boolean>(false);
 
   // Memoize available client names for dropdown filter
@@ -306,21 +307,37 @@ export default function CollectionsPage() {
     if (selectedClientFilter !== 'ALL') {
       list = list.filter(c => c.client === selectedClientFilter);
     }
+    if (selectedStatusFilter !== 'ALL') {
+      if (selectedStatusFilter === '연체') {
+        list = list.filter(c => c.status === '연체' || c.overdueMonths >= 1);
+      } else {
+        list = list.filter(c => c.status === selectedStatusFilter);
+      }
+    }
     if (showOnlyWithRemarks) {
       list = list.filter(c => c.remarks && c.remarks.trim() !== '');
     }
     list.sort((a, b) => {
       let comparison = 0;
-      if (sortBy === 'dueDate') {
-        comparison = a.dueDate.localeCompare(b.dueDate);
-      } else if (sortBy === 'client') {
+      if (sortBy === 'client') {
+        // 1순위: 연체 상태 우선 배치 (연체건이 상단에 묶임)
+        const isAOverdue = (a.status === '연체' || a.overdueMonths >= 1) ? 0 : 1;
+        const isBOverdue = (b.status === '연체' || b.overdueMonths >= 1) ? 0 : 1;
+        if (isAOverdue !== isBOverdue) {
+          return isAOverdue - isBOverdue;
+        }
+        // 2순위: 거래처명 가나다순 정렬
         comparison = a.client.localeCompare(b.client, 'ko');
+      } else if (sortBy === 'dueDate') {
+        comparison = a.dueDate.localeCompare(b.dueDate);
       } else if (sortBy === 'actualDate') {
         const aDate = a.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
         const bDate = b.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
         comparison = aDate.localeCompare(bDate);
       } else if (sortBy === 'status') {
-        comparison = getStatusPriority(a.status) - getStatusPriority(b.status);
+        const prioDiff = getStatusPriority(a.status) - getStatusPriority(b.status);
+        if (prioDiff !== 0) return prioDiff;
+        comparison = a.client.localeCompare(b.client, 'ko');
       } else if (sortBy === 'remarks') {
         const aRemarks = a.remarks || '';
         const bRemarks = b.remarks || '';
@@ -330,7 +347,7 @@ export default function CollectionsPage() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
     return list;
-  }, [expectedCollections, sortBy, sortOrder, searchTerm, selectedClientFilter, showOnlyWithRemarks]);
+  }, [expectedCollections, sortBy, sortOrder, searchTerm, selectedClientFilter, selectedStatusFilter, showOnlyWithRemarks]);
 
   const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks' | 'client') => {
     if (sortBy !== field) {
@@ -699,8 +716,22 @@ export default function CollectionsPage() {
                 </h3>
               </div>
 
-              {/* 필터 컨트롤 박스: 거래처 드롭다운 + 검색창 */}
+              {/* 필터 컨트롤 박스: 상태 드롭다운 + 거래처 드롭다운 + 검색창 */}
               <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-sm">
+                  <Clock className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
+                    className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">전체 상태 보기</option>
+                    <option value="연체">🚨 연체 항목만 보기</option>
+                    <option value="대기">⏳ 대기 항목만 보기</option>
+                    <option value="완료">✅ 완료(일치) 항목만 보기</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-sm">
                   <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                   <select
