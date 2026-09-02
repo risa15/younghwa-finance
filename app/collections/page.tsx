@@ -270,11 +270,11 @@ export default function CollectionsPage() {
   };
 
   // Sorting states
-  const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status' | 'remarks'>('dueDate');
+  const [sortBy, setSortBy] = useState<'dueDate' | 'actualDate' | 'status' | 'remarks' | 'client'>('dueDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Toggle sort direction or field
-  const toggleSort = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks') => {
+  const toggleSort = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks' | 'client') => {
     if (sortBy === field) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -313,6 +313,8 @@ export default function CollectionsPage() {
       let comparison = 0;
       if (sortBy === 'dueDate') {
         comparison = a.dueDate.localeCompare(b.dueDate);
+      } else if (sortBy === 'client') {
+        comparison = a.client.localeCompare(b.client, 'ko');
       } else if (sortBy === 'actualDate') {
         const aDate = a.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
         const bDate = b.actualDate || (sortOrder === 'asc' ? '9999-99-99' : '0000-00-00');
@@ -328,9 +330,9 @@ export default function CollectionsPage() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
     return list;
-  }, [expectedCollections, sortBy, sortOrder, searchTerm, showOnlyWithRemarks]);
+  }, [expectedCollections, sortBy, sortOrder, searchTerm, selectedClientFilter, showOnlyWithRemarks]);
 
-  const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks') => {
+  const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks' | 'client') => {
     if (sortBy !== field) {
       return <ArrowUpDown className="h-3 w-3 text-slate-350 shrink-0" />;
     }
@@ -759,7 +761,15 @@ export default function CollectionsPage() {
                         {renderSortIcon('dueDate')}
                       </div>
                     </th>
-                    <th className="px-4 py-3">거래처명</th>
+                    <th 
+                      className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                      onClick={() => toggleSort('client')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>거래처명</span>
+                        {renderSortIcon('client')}
+                      </div>
+                    </th>
                     <th className="px-4 py-3 text-right">예정금액</th>
                     <th className="px-4 py-3">입금명의</th>
                     <th 
