@@ -371,10 +371,12 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    // De-duplicate filtered collections by (dueDate, client, amount)
+    // De-duplicate filtered collections by (month, cleanClient, amount) so different days in the same month won't duplicate
     const uniqueCollectionsMap = new Map<string, any>();
     for (const item of filteredCollections) {
-      const key = `${item.dueDate}_${item.client}_${item.amount}`;
+      const monthStr = item.dueDate ? item.dueDate.substring(0, 7) : '';
+      const cleanClientStr = cleanName(item.client);
+      const key = `${monthStr}_${cleanClientStr}_${item.amount}`;
       const existing = uniqueCollectionsMap.get(key);
       if (!existing) {
         uniqueCollectionsMap.set(key, item);
