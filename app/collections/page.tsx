@@ -50,7 +50,19 @@ export default function CollectionsPage() {
   const [expectedLoading, setExpectedLoading] = useState<boolean>(false);
   const [expectedError, setExpectedError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedClientFilter, setSelectedClientFilter] = useState<string>('ALL');
   const [showOnlyWithRemarks, setShowOnlyWithRemarks] = useState<boolean>(false);
+
+  // Memoize available client names for dropdown filter
+  const availableClients = useMemo(() => {
+    const set = new Set<string>();
+    expectedCollections.forEach(c => {
+      if (c.client && c.client.trim()) {
+        set.add(c.client.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ko'));
+  }, [expectedCollections]);
 
 
   // Fetch transactions
@@ -290,6 +302,9 @@ export default function CollectionsPage() {
     if (searchTerm.trim() !== '') {
       const term = searchTerm.toLowerCase();
       list = list.filter(c => c.client.toLowerCase().includes(term));
+    }
+    if (selectedClientFilter !== 'ALL') {
+      list = list.filter(c => c.client === selectedClientFilter);
     }
     if (showOnlyWithRemarks) {
       list = list.filter(c => c.remarks && c.remarks.trim() !== '');
@@ -675,21 +690,58 @@ export default function CollectionsPage() {
 
           {/* Cross check table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row justify-between md:items-center gap-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   수금 예정 내역 및 입출금 장부 크로스체크 (대조)
                 </h3>
               </div>
-              <div className="text-[10px] text-slate-400 font-semibold font-mono flex items-center gap-2">
-                <span>조회 대상 월: {selectedDate.split('-')[0]}-{selectedDate.split('-')[1]}</span>
-                <button 
-                  onClick={fetchExpectedData} 
-                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
-                  title="새로고침"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </button>
+
+              {/* 필터 컨트롤 박스: 거래처 드롭다운 + 검색창 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-sm">
+                  <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  <select
+                    value={selectedClientFilter}
+                    onChange={(e) => setSelectedClientFilter(e.target.value)}
+                    className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">전체 거래처 ({availableClients.length}곳)</option>
+                    {availableClients.map(client => (
+                      <option key={client} value={client}>{client}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="거래처 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 pr-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald shadow-sm"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-[10px] text-slate-400 font-semibold font-mono flex items-center gap-1.5 ml-1">
+                  <span>조회월: {selectedDate.split('-')[0]}-{selectedDate.split('-')[1]}</span>
+                  <button 
+                    onClick={fetchExpectedData} 
+                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
+                    title="새로고침"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -697,6 +749,7 @@ export default function CollectionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
+                    <th className="px-3 py-3 text-center min-w-[85px]">연체 구분</th>
                     <th 
                       className="px-4 py-3 min-w-[110px] cursor-pointer hover:bg-slate-100 transition-colors select-none"
                       onClick={() => toggleSort('dueDate')}
@@ -743,7 +796,12 @@ export default function CollectionsPage() {
                   {sortedExpectedCollections.length > 0 ? (
                     sortedExpectedCollections.map((col, idx) => {
                       let statusBadge = null;
-                      let statusRowClass = '';
+                      
+                      // Single highlight style for 1+ month overdue issues
+                      const isOverdueIssue = col.overdueMonths >= 1 || col.status === '연체';
+                      const statusRowClass = isOverdueIssue 
+                        ? 'bg-rose-50/80 border-l-4 border-l-rose-500' 
+                        : 'bg-white hover:bg-slate-50/50';
 
                       switch (col.status) {
                         case '완료':
@@ -761,9 +819,8 @@ export default function CollectionsPage() {
                               <span>금액불일치</span>
                             </span>
                           );
-                          statusRowClass = 'bg-amber-50/10';
                           break;
-case '수동완료':
+                        case '수동완료':
                           statusBadge = (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center gap-1 w-fit mx-auto">
                               <CheckCircle2 className="h-3 w-3" />
@@ -778,7 +835,6 @@ case '수동완료':
                               <span>내역누락</span>
                             </span>
                           );
-                          statusRowClass = 'bg-yellow-50/10';
                           break;
                         case '연체':
                           statusBadge = (
@@ -787,7 +843,6 @@ case '수동완료':
                               <span>연체</span>
                             </span>
                           );
-                          statusRowClass = 'bg-rose-50/10';
                           break;
                         default:
                           statusBadge = (
@@ -799,9 +854,18 @@ case '수동완료':
 
                       return (
                         <tr 
-                           key={`${col.client}-${idx}`} 
-                          className={`hover:bg-slate-50/50 transition-colors duration-150 ${statusRowClass}`}
+                          key={`${col.client}-${idx}`} 
+                          className={`transition-colors duration-150 ${statusRowClass}`}
                         >
+                          <td className="px-3 py-4 text-center">
+                            {col.overdueMonths >= 1 ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white shadow-sm shrink-0 inline-block whitespace-nowrap">
+                                {col.overdueMonths >= 3 ? '3달+ 연체' : `${col.overdueMonths}달 연체`}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 text-[10px] font-medium">-</span>
+                            )}
+                          </td>
                           <td className="px-4 py-4 font-mono text-slate-500 group">
                             <div className="flex items-center justify-between gap-1">
                               <span>{col.dueDate}</span>

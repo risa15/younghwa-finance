@@ -356,6 +356,14 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Helper to calculate month difference between two YYYY-MM date strings
+    const getMonthDiff = (fromMonthStr: string, toMonthStr: string): number => {
+      if (!fromMonthStr || !toMonthStr || fromMonthStr.length < 7 || toMonthStr.length < 7) return 0;
+      const [fYear, fMonth] = fromMonthStr.substring(0, 7).split('-').map(Number);
+      const [tYear, tMonth] = toMonthStr.substring(0, 7).split('-').map(Number);
+      return (tYear - fYear) * 12 + (tMonth - fMonth);
+    };
+
     // Filter by the month of requestedDate OR prior month overdues
     const filteredCollections = processedCollections
       .filter(c => {
@@ -365,9 +373,15 @@ export async function GET(request: NextRequest) {
       })
       .map(c => {
         const isCurrentMonth = c.dueDate.startsWith(targetMonthStr);
+        let overdueMonths = 0;
+        if (c.status === '연체') {
+          const dueMonthStr = c.dueDate ? c.dueDate.substring(0, 7) : targetMonthStr;
+          overdueMonths = Math.max(1, getMonthDiff(dueMonthStr, targetMonthStr));
+        }
         return {
           ...c,
-          isCarriedOver: !isCurrentMonth
+          isCarriedOver: !isCurrentMonth,
+          overdueMonths
         };
       });
 
