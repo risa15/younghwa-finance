@@ -17,7 +17,9 @@ import {
   ArrowUpDown,
   Search,
   X,
-  Edit
+  Edit,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { CashTransaction, ExpectedCollection, MatchingSuggestion } from '@/lib/types';
 import MatchingSuggestions from '@/components/MatchingSuggestions';
@@ -349,6 +351,131 @@ export default function CollectionsPage() {
     return list;
   }, [expectedCollections, sortBy, sortOrder, searchTerm, selectedClientFilter, selectedStatusFilter, showOnlyWithRemarks]);
 
+  // Memoized Overdue Items & Total Overdue Amount
+  const overdueItems = useMemo(() => {
+    return expectedCollections.filter(c => c.status === '연체' || c.overdueMonths >= 1);
+  }, [expectedCollections]);
+
+  const overdueTotalAmount = useMemo(() => {
+    return overdueItems.reduce((sum, c) => sum + c.amount, 0);
+  }, [overdueItems]);
+
+  // Export Expected Collections / Overdue list to CSV (UTF-8 BOM for Excel)
+  const handleDownloadCSV = (onlyOverdue: boolean = false) => {
+    const sourceList = onlyOverdue 
+      ? expectedCollections.filter(c => c.status === '연체' || c.overdueMonths >= 1)
+      : sortedExpectedCollections;
+
+    if (sourceList.length === 0) {
+      alert(onlyOverdue ? '다운로드할 연체 거래처 내역이 없습니다.' : '다운로드할 내역이 없습니다.');
+      return;
+    }
+
+    const headers = [
+      '연체 구분',
+      '결제기한',
+      '거래처명',
+      '이월 여부',
+      '예정금액(원)',
+      '입금명의',
+      '실제수금일',
+      '대조 상태',
+      '비고 (체크 포인트)',
+      '장부 대조 상세 정보'
+    ];
+
+    const rows = sourceList.map(c => {
+      let overdueLabel = '정상';
+      if (c.overdueMonths >= 3) overdueLabel = '3달+ 연체';
+      else if (c.overdueMonths >= 1) overdueLabel = `${c.overdueMonths}달 연체`;
+      else if (c.status === '연체') overdueLabel = '연체';
+
+      let statusLabel = '대기';
+      switch (c.status) {
+        case '완료': statusLabel = '일치'; break;
+        case '불일치_금액오차': statusLabel = '금액불일치'; break;
+        case '수동완료': statusLabel = '직접확정'; break;
+        case '불일치_내역없음': statusLabel = '내역누락'; break;
+        case '연체': statusLabel = '연체'; break;
+        default: statusLabel = '대기';
+      }
+
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        const s = String(val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+
+      return [
+        escapeCsv(overdueLabel),
+        escapeCsv(c.dueDate || ''),
+        escapeCsv(c.client || ''),
+        escapeCsv(c.isCarriedOver ? '이월' : '당월'),
+        c.amount || 0,
+        escapeCsv(c.depositorName || ''),
+        escapeCsv(c.actualDate || ''),
+        escapeCsv(statusLabel),
+        escapeCsv(c.remarks || ''),
+        escapeCsv(c.matchDetails?.message || (c.status === '대기' ? '수금 대기 중' : '결제 기한 경과 미수'))
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    const dateTag = selectedDate.replace(/-/g, '').substring(0, 6);
+    const todayTag = formatDateStr(new Date()).replace(/-/g, '');
+    const filenamePrefix = onlyOverdue ? '연체거래처_리스트' : '수금예정_장부크로스체크';
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filenamePrefix}_${dateTag}_${todayTag}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Export Actual Collections to CSV
+  const handleDownloadActualCSV = () => {
+    if (filteredCollections.length === 0) {
+      alert('다운로드할 수금 완료 내역이 없습니다.');
+      return;
+    }
+
+    const headers = ['날짜', '거래처명', '카테고리', '메모', '금액(원)'];
+    const rows = filteredCollections.map(col => {
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        const s = String(val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+      return [
+        escapeCsv(col.date),
+        escapeCsv(col.client),
+        escapeCsv(col.category || ''),
+        escapeCsv(col.memo || ''),
+        col.amount || 0
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    const dateTag = selectedDate.replace(/-/g, '');
+    const todayTag = formatDateStr(new Date()).replace(/-/g, '');
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `수금완료_입금내역_${dateTag}_${todayTag}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const renderSortIcon = (field: 'dueDate' | 'actualDate' | 'status' | 'remarks' | 'client') => {
     if (sortBy !== field) {
       return <ArrowUpDown className="h-3 w-3 text-slate-350 shrink-0" />;
@@ -588,10 +715,20 @@ export default function CollectionsPage() {
                   {viewType === 'daily' ? '일별 수금 상세 내역' : '월별 수금 상세 내역'}
                 </h3>
               </div>
-              <div className="text-[10px] text-slate-400 font-semibold font-mono">
-                조회 대상 기간: <span className="text-slate-600">
-                  {viewType === 'daily' ? selectedDate : `${selectedDate.split('-')[0]}-${selectedDate.split('-')[1]}`}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] text-slate-400 font-semibold font-mono">
+                  조회 대상 기간: <span className="text-slate-600">
+                    {viewType === 'daily' ? selectedDate : `${selectedDate.split('-')[0]}-${selectedDate.split('-')[1]}`}
+                  </span>
+                </div>
+                <button
+                  onClick={handleDownloadActualCSV}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors shadow-sm"
+                  title="수금 완료 내역 엑셀(CSV) 다운로드"
+                >
+                  <Download className="h-3.5 w-3.5 text-slate-500" />
+                  <span>엑셀 다운로드</span>
+                </button>
               </div>
             </div>
 
@@ -669,6 +806,49 @@ export default function CollectionsPage() {
             />
           )}
           
+          {/* 🚨 연체 거래처 현황 및 바로 다운로드 배너 */}
+          {overdueItems.length > 0 && (
+            <div className="bg-gradient-to-r from-rose-50 to-rose-100/70 border border-rose-200/80 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm shrink-0">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs font-extrabold text-rose-950">🚨 연체 거래처 현황</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-xs">
+                      총 {overdueItems.length}건
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-700 mt-0.5 font-medium">
+                    결제 기한이 지난 미수 금액 합계: <span className="font-mono font-extrabold text-rose-900">{overdueTotalAmount.toLocaleString()}원</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+                <button
+                  onClick={() => setSelectedStatusFilter('연체')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all duration-150 shadow-sm ${
+                    selectedStatusFilter === '연체'
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'bg-white hover:bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+                >
+                  🚨 연체건만 보기
+                </button>
+                <button
+                  onClick={() => handleDownloadCSV(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-lg transition-all shadow-sm"
+                  title="연체된 거래처 목록을 엑셀(CSV) 파일로 다운로드합니다."
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>연체 거래처 엑셀 다운로드</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Summary KPIs for Cross-check */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm text-xs">
@@ -716,7 +896,7 @@ export default function CollectionsPage() {
                 </h3>
               </div>
 
-              {/* 필터 컨트롤 박스: 상태 드롭다운 + 거래처 드롭다운 + 검색창 */}
+              {/* 필터 컨트롤 박스: 상태 드롭다운 + 거래처 드롭다운 + 검색창 + 다운로드 버튼 */}
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-sm">
                   <Clock className="h-3.5 w-3.5 text-rose-500 shrink-0" />
@@ -763,6 +943,25 @@ export default function CollectionsPage() {
                       <X className="h-3 w-3" />
                     </button>
                   )}
+                </div>
+
+                <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
+                  <button
+                    onClick={() => handleDownloadCSV(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors shadow-sm"
+                    title="연체 거래처 목록 엑셀 다운로드"
+                  >
+                    <Download className="h-3.5 w-3.5 text-rose-600" />
+                    <span>연체 리스트 다운로드</span>
+                  </button>
+                  <button
+                    onClick={() => handleDownloadCSV(false)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors shadow-sm"
+                    title="현재 대조 테이블 목록 엑셀 다운로드"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>전체 대조 내역 다운로드</span>
+                  </button>
                 </div>
 
                 <div className="text-[10px] text-slate-400 font-semibold font-mono flex items-center gap-1.5 ml-1">
