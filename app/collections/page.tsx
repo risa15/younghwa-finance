@@ -58,7 +58,20 @@ export default function CollectionsPage() {
 
   // Issue clients states
   const [issueClients, setIssueClients] = useState<any[]>([]);
+  const [dismissedClients, setDismissedClients] = useState<string[]>([]);
   const [selectedClientForHistory, setSelectedClientForHistory] = useState<any | null>(null);
+
+  // Load dismissed issue clients from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dismissedIssueClients');
+      if (saved) {
+        setDismissedClients(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to parse dismissedIssueClients from localStorage:', e);
+    }
+  }, []);
 
   // Fetch issue clients Watchlist
   const fetchIssueClients = React.useCallback(async () => {
@@ -81,12 +94,13 @@ export default function CollectionsPage() {
   const activeIssueClientsMap = useMemo(() => {
     const map: Record<string, any> = {};
     issueClients.forEach(ic => {
-      if (ic.status === 'ACTIVE') {
-        map[ic.client.trim()] = ic;
+      const cleanName = ic.client.trim();
+      if (ic.status === 'ACTIVE' && !dismissedClients.includes(cleanName)) {
+        map[cleanName] = ic;
       }
     });
     return map;
-  }, [issueClients]);
+  }, [issueClients, dismissedClients]);
 
   // Memoize available client names for dropdown filter
   const availableClients = useMemo(() => {
@@ -310,48 +324,105 @@ export default function CollectionsPage() {
 
   // Handle toggling issue client status (ACTIVE <-> RESOLVED)
   const handleToggleIssueStatus = async (clientName: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'ACTIVE' ? 'RESOLVED' : 'ACTIVE';
-    const actionText = newStatus === 'RESOLVED' ? '정상 거래처로 해제 (리스트에서 제외)' : '수금 이슈 거래처로 재지정';
-    if (!window.confirm(`[${clientName}] 거래처를 ${actionText}하시겠습니까?`)) return;
+    const cleanName = clientName.trim();
+    const isCurrentlyDismissed = dismissedClients.includes(cleanName) || currentStatus === 'RESOLVED';
+    const newStatus = isCurrentlyDismissed ? 'ACTIVE' : 'RESOLVED';
+    const actionText = newStatus === 'RESOLVED' ? '이슈 리스트에서 제외' : '이슈 관리 리스트에 재지정';
+
+    if (!window.confirm(`[${cleanName}] 거래처를 ${actionText}하시겠습니까?`)) return;
+
+    // 1. Instant Optimistic UI & localStorage Update
+    if (newStatus === 'RESOLVED') {
+      const updatedDismissed = Array.from(new Set([...dismissedClients, cleanName]));
+      setDismissedClients(updatedDismissed);
+      try {
+        localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
+      } catch (e) {}
+    } else {
+      const updatedDismissed = dismissedClients.filter(c => c !== cleanName);
+      setDismissedClients(updatedDismissed);
+      try {
+        localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
+      } catch (e) {}
+    }
 
     try {
-      setExpectedLoading(true);
       const res = await fetch('/api/issue-clients', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client: clientName, status: newStatus })
+        body: JSON.stringify({ client: cleanName, status: newStatus })
       });
 
       if (!res.ok) throw new Error('상태 변경에 실패했습니다.');
-      alert(`[${clientName}] 거래처가 ${newStatus === 'RESOLVED' ? '이슈 해제' : '이슈 관리'} 상태로 변경되었습니다.`);
       fetchIssueClients();
     } catch (err: any) {
-      alert(err.message || '상태 변경 중 오류가 발생했습니다.');
-    } finally {
-      setExpectedLoading(false);
+      console.error(err);
     }
   };
 
   // Handle manual add comment to issue client
   const handleAddIssueClientRemark = async (clientName: string) => {
-    const remarksInput = window.prompt(`[${clientName}] 거래처의 관리 코멘트를 입력해주세요:`);
+    const cleanName = clientName.trim();
+    const remarksInput = window.prompt(`[${cleanName}] 거래처의 관리 코멘트를 입력해주세요:`);
     if (!remarksInput || !remarksInput.trim()) return;
 
+    const newRemark = remarksInput.trim();
+    const todayStr = new Date().toISOString().substring(0, 10);
+
+    // 1. Instant Optimistic UI Update for remarks
+    setIssueClients(prev => {
+      const existingIdx = prev.findIndex(c => c.client.trim() === cleanName);
+      const newHistoryItem = {
+        id: `${Date.now()}-opt`,
+        date: todayStr,
+        remarks: newRemark
+      };
+
+      if (existingIdx >= 0) {
+        const updatedList = [...prev];
+        updatedList[existingIdx] = {
+          ...updatedList[existingIdx],
+          status: 'ACTIVE',
+          latestRemarks: newRemark,
+          remarksHistory: [newHistoryItem, ...(updatedList[existingIdx].remarksHistory || [])],
+          updatedAt: new Date().toISOString()
+        };
+        return updatedList;
+      } else {
+        return [
+          {
+            client: cleanName,
+            status: 'ACTIVE',
+            latestRemarks: newRemark,
+            remarksHistory: [newHistoryItem],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          ...prev
+        ];
+      }
+    });
+
+    // Ensure client is reactivated from dismissed list
+    if (dismissedClients.includes(cleanName)) {
+      const updatedDismissed = dismissedClients.filter(c => c !== cleanName);
+      setDismissedClients(updatedDismissed);
+      try {
+        localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
+      } catch (e) {}
+    }
+
     try {
-      setExpectedLoading(true);
       const res = await fetch('/api/issue-clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client: clientName, remarks: remarksInput.trim() })
+        body: JSON.stringify({ client: cleanName, remarks: newRemark })
       });
 
       if (!res.ok) throw new Error('코멘트 등록에 실패했습니다.');
-      alert(`[${clientName}] 코멘트가 새로 추가되었습니다.`);
       fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '코멘트 등록 중 오류가 발생했습니다.');
-    } finally {
-      setExpectedLoading(false);
     }
   };
 
@@ -1358,7 +1429,7 @@ export default function CollectionsPage() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <span>수금 이슈 거래처 목록</span>
                 </h3>
-                <span className="text-xs text-slate-400">({issueClients.filter(c => c.status === 'ACTIVE').length}건)</span>
+                <span className="text-xs text-slate-400">({issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim())).length}건)</span>
               </div>
               
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1389,9 +1460,9 @@ export default function CollectionsPage() {
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {issueClients.filter(c => c.status === 'ACTIVE').length > 0 ? (
+                  {issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim())).length > 0 ? (
                     issueClients
-                      .filter(c => c.status === 'ACTIVE')
+                      .filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim()))
                       .sort((a, b) => a.client.localeCompare(b.client, 'ko'))
                       .map((item) => {
                         return (
