@@ -63,7 +63,7 @@ function saveData(data: Record<string, IssueClientRecord>) {
 
 export function getAllIssueClients(): IssueClientRecord[] {
   const data = loadData();
-  return Object.values(data).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return Object.values(data).sort((a, b) => a.client.localeCompare(b.client, 'ko'));
 }
 
 export function getIssueClient(client: string): IssueClientRecord | undefined {

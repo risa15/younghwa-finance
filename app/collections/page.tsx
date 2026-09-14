@@ -1358,7 +1358,7 @@ export default function CollectionsPage() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <span>수금 이슈 거래처 목록</span>
                 </h3>
-                <span className="text-xs text-slate-400">({issueClients.length}건)</span>
+                <span className="text-xs text-slate-400">({issueClients.filter(c => c.status === 'ACTIVE').length}건)</span>
               </div>
               
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1381,88 +1381,66 @@ export default function CollectionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400 tracking-wider">
-                    <th className="px-4 py-3 min-w-[140px]">거래처명</th>
-                    <th className="px-4 py-3 text-center min-w-[100px]">이슈 상태</th>
-                    <th className="px-4 py-3 min-w-[220px]">최근 비고 (체크 포인트)</th>
-                    <th className="px-4 py-3 min-w-[140px]">최근 업데이트 / 등록일</th>
-                    <th className="px-4 py-3 text-center min-w-[160px]">비고 이력 타임라인</th>
-                    <th className="px-4 py-3 text-center min-w-[160px]">이슈 상태 관리 (빼기/재지정)</th>
+                    <th className="px-4 py-3 min-w-[140px]">거래처명 (가나다 순)</th>
+                    <th className="px-4 py-3 min-w-[280px]">최근 비고 (체크 포인트)</th>
+                    <th className="px-4 py-3 min-w-[130px]">최근 업데이트 / 등록일</th>
+                    <th className="px-4 py-3 text-center min-w-[120px]">비고 이력</th>
+                    <th className="px-4 py-3 text-center min-w-[90px]">관리</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {issueClients.length > 0 ? (
-                    issueClients.map((item) => {
-                      const isActive = item.status === 'ACTIVE';
-                      return (
-                        <tr key={item.client} className={`hover:bg-slate-50/80 transition-colors ${isActive ? 'bg-amber-50/20' : 'bg-slate-50/40'}`}>
-                          <td className="px-4 py-4 font-bold text-slate-800">
-                            <div className="flex items-center gap-1.5">
+                  {issueClients.filter(c => c.status === 'ACTIVE').length > 0 ? (
+                    issueClients
+                      .filter(c => c.status === 'ACTIVE')
+                      .sort((a, b) => a.client.localeCompare(b.client, 'ko'))
+                      .map((item) => {
+                        return (
+                          <tr key={item.client} className="hover:bg-slate-50/80 transition-colors bg-white">
+                            <td className="px-4 py-4 font-bold text-slate-800">
                               <span>{item.client}</span>
-                              {isActive && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                                  이슈 관리중
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            {isActive ? (
-                              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                <span>이슈지속</span>
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                <span>정상해제</span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-slate-700">
-                            <div className="font-medium whitespace-pre-wrap break-all text-[11px] leading-relaxed">
-                              {item.latestRemarks || '기록된 비고 없음'}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 font-mono text-slate-500 text-[11px]">
-                            <div>{item.updatedAt ? item.updatedAt.split('T')[0] : '-'}</div>
-                            <div className="text-[9px] text-slate-400 font-normal">최초등록: {item.createdAt ? item.createdAt.split('T')[0] : '-'}</div>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <button
-                              onClick={() => setSelectedClientForHistory(item)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-sm"
-                            >
-                              <span>전체 이력 ({item.remarksHistory?.length || 0}건)</span>
-                            </button>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            </td>
+                            <td className="px-4 py-4 text-slate-700">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="font-medium whitespace-pre-wrap break-all text-[11px] leading-relaxed">
+                                  {item.latestRemarks || '기록된 비고 없음'}
+                                </div>
+                                <button
+                                  onClick={() => handleAddIssueClientRemark(item.client)}
+                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold rounded transition-colors shrink-0 whitespace-nowrap shadow-2xs"
+                                  title="추가 코멘트 작성"
+                                >
+                                  + 코멘트
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 font-mono text-slate-500 text-[11px]">
+                              <div>{item.updatedAt ? item.updatedAt.split('T')[0] : '-'}</div>
+                              <div className="text-[9px] text-slate-400 font-normal">등록: {item.createdAt ? item.createdAt.split('T')[0] : '-'}</div>
+                            </td>
+                            <td className="px-4 py-4 text-center">
                               <button
-                                onClick={() => handleAddIssueClientRemark(item.client)}
-                                className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded transition-colors"
-                                title="추가 코멘트 작성"
+                                onClick={() => setSelectedClientForHistory(item)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-2xs"
                               >
-                                + 코멘트
+                                <span>이력 ({item.remarksHistory?.length || 0}건)</span>
                               </button>
+                            </td>
+                            <td className="px-4 py-4 text-center">
                               <button
                                 onClick={() => handleToggleIssueStatus(item.client, item.status)}
-                                className={`px-2.5 py-1 text-[10px] font-bold rounded transition-colors shadow-sm ${
-                                  isActive
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700'
-                                    : 'bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700'
-                                }`}
+                                className="px-3 py-1 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-600 font-bold text-xs rounded transition-colors shadow-2xs whitespace-nowrap"
+                                title="이슈 목록에서 제외"
                               >
-                                {isActive ? '✅ 리스트에서 빼기 (해제)' : '🔄 이슈 재지정'}
+                                제외
                               </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+                            </td>
+                          </tr>
+                        );
+                      })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                        등록되거나 수집된 이슈 거래처가 없습니다.
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                        등록되거나 수집된 이슈 관리 거래처가 없습니다.
                       </td>
                     </tr>
                   )}
