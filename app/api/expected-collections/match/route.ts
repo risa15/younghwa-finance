@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateExpectedCollection } from '@/lib/sheets';
+import { addOrUpdateIssueClient } from '@/lib/issueClients';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { rowIndex, actualDate, amount, remarks, dueDate } = body;
+    const { rowIndex, actualDate, amount, remarks, dueDate, client } = body;
 
     if (rowIndex === undefined || actualDate === undefined || actualDate === null) {
       return NextResponse.json(
@@ -42,6 +43,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto record to issue clients watchlist if client name and non-empty remarks exist
+    if (client && typeof client === 'string' && client.trim() && remarks && typeof remarks === 'string' && remarks.trim()) {
+      try {
+        addOrUpdateIssueClient(client.trim(), remarks.trim(), {
+          amount: parsedAmount,
+          dueDate,
+          actualDate
+        });
+      } catch (err) {
+        console.error('Failed to auto record issue client:', err);
+      }
+    }
+
     return NextResponse.json({ success: true, message: `Successfully updated row ${rowIdx} with date ${actualDate}` });
   } catch (error) {
     console.error('Error in POST /api/expected-collections/match:', error);
@@ -51,3 +65,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

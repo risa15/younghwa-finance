@@ -46,7 +46,7 @@ export default function CollectionsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // New Expected Collections states
-  const [activeSubTab, setActiveSubTab] = useState<'actual' | 'crossCheck'>('actual');
+  const [activeSubTab, setActiveSubTab] = useState<'actual' | 'crossCheck' | 'issueClients'>('actual');
   const [expectedCollections, setExpectedCollections] = useState<any[]>([]);
   const [matchingSuggestions, setMatchingSuggestions] = useState<MatchingSuggestion[]>([]);
   const [expectedLoading, setExpectedLoading] = useState<boolean>(false);
@@ -55,6 +55,38 @@ export default function CollectionsPage() {
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
   const [showOnlyWithRemarks, setShowOnlyWithRemarks] = useState<boolean>(false);
+
+  // Issue clients states
+  const [issueClients, setIssueClients] = useState<any[]>([]);
+  const [selectedClientForHistory, setSelectedClientForHistory] = useState<any | null>(null);
+
+  // Fetch issue clients Watchlist
+  const fetchIssueClients = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/issue-clients');
+      if (res.ok) {
+        const result = await res.json();
+        setIssueClients(result.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch issue clients:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIssueClients();
+  }, [fetchIssueClients]);
+
+  // Map of active issue clients for quick lookup and badge display
+  const activeIssueClientsMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    issueClients.forEach(ic => {
+      if (ic.status === 'ACTIVE') {
+        map[ic.client.trim()] = ic;
+      }
+    });
+    return map;
+  }, [issueClients]);
 
   // Memoize available client names for dropdown filter
   const availableClients = useMemo(() => {
@@ -151,7 +183,7 @@ export default function CollectionsPage() {
     const amountInput = window.prompt(`[${clientName}] 건의 예정금액(수금액)을 수정하시겠습니까? (수정 불필요 시 그냥 엔터):`, currentAmount.toString());
     const remarksInput = window.prompt(`[${clientName}] 건의 비고(메모)를 등록/수정하시겠습니까? (수정 불필요 시 그냥 엔터):`, currentRemarks || '');
 
-    const body: any = { rowIndex, actualDate };
+    const body: any = { rowIndex, actualDate, client: clientName };
     
     if (amountInput !== null && amountInput.trim() !== '' && amountInput.trim() !== currentAmount.toString()) {
       const parsedAmount = parseInt(amountInput.replace(/,/g, ''), 10);
@@ -181,6 +213,7 @@ export default function CollectionsPage() {
 
       alert('수금 확정 처리가 완료되었습니다.');
       fetchExpectedData();
+      fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '수금 확정 처리에 실패했습니다.');
     } finally {
@@ -201,7 +234,7 @@ export default function CollectionsPage() {
       const response = await fetch('/api/expected-collections/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndex, actualDate, remarks })
+        body: JSON.stringify({ rowIndex, actualDate, remarks, client: clientName })
       });
 
       if (!response.ok) {
@@ -211,6 +244,7 @@ export default function CollectionsPage() {
 
       alert('비고가 성공적으로 업데이트되었습니다.');
       fetchExpectedData();
+      fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '비고 수정에 실패했습니다.');
     } finally {
@@ -254,7 +288,8 @@ export default function CollectionsPage() {
           rowIndex, 
           actualDate: currentActualDate || '', 
           dueDate: newDueDate, 
-          remarks 
+          remarks,
+          client: clientName 
         })
       });
 
@@ -263,10 +298,58 @@ export default function CollectionsPage() {
         throw new Error(errData.error || '수금예정일 변경 중 오류가 발생했습니다.');
       }
 
-      alert(`[${clientName}] 입금예정일이 ${newDueDate}(으)로 성공적으로 변경되었습니다.`);
+      alert('수금예정일 변경이 완료되었습니다.');
       fetchExpectedData();
+      fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '수금예정일 변경에 실패했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
+
+  // Handle toggling issue client status (ACTIVE <-> RESOLVED)
+  const handleToggleIssueStatus = async (clientName: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'RESOLVED' : 'ACTIVE';
+    const actionText = newStatus === 'RESOLVED' ? '정상 거래처로 해제 (리스트에서 제외)' : '수금 이슈 거래처로 재지정';
+    if (!window.confirm(`[${clientName}] 거래처를 ${actionText}하시겠습니까?`)) return;
+
+    try {
+      setExpectedLoading(true);
+      const res = await fetch('/api/issue-clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client: clientName, status: newStatus })
+      });
+
+      if (!res.ok) throw new Error('상태 변경에 실패했습니다.');
+      alert(`[${clientName}] 거래처가 ${newStatus === 'RESOLVED' ? '이슈 해제' : '이슈 관리'} 상태로 변경되었습니다.`);
+      fetchIssueClients();
+    } catch (err: any) {
+      alert(err.message || '상태 변경 중 오류가 발생했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
+
+  // Handle manual add comment to issue client
+  const handleAddIssueClientRemark = async (clientName: string) => {
+    const remarksInput = window.prompt(`[${clientName}] 거래처의 관리 코멘트를 입력해주세요:`);
+    if (!remarksInput || !remarksInput.trim()) return;
+
+    try {
+      setExpectedLoading(true);
+      const res = await fetch('/api/issue-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client: clientName, remarks: remarksInput.trim() })
+      });
+
+      if (!res.ok) throw new Error('코멘트 등록에 실패했습니다.');
+      alert(`[${clientName}] 코멘트가 새로 추가되었습니다.`);
+      fetchIssueClients();
+    } catch (err: any) {
+      alert(err.message || '코멘트 등록 중 오류가 발생했습니다.');
     } finally {
       setExpectedLoading(false);
     }
@@ -565,68 +648,70 @@ export default function CollectionsPage() {
         </div>
 
         {/* View toggler & Date navigation */}
-        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
-          {/* Toggle Daily/Monthly */}
-          <div className="flex bg-white border border-slate-200 rounded-lg p-0.5 h-9 shadow-sm">
-            <button
-              onClick={() => setViewType('daily')}
-              className={`px-3 text-xs font-semibold rounded-md transition-all ${
-                viewType === 'daily' 
-                  ? 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              일별
-            </button>
-            <button
-              onClick={() => setViewType('monthly')}
-              className={`px-3 text-xs font-semibold rounded-md transition-all ${
-                viewType === 'monthly' 
-                  ? 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20' 
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              월별
-            </button>
-          </div>
-
-          {/* Date controls */}
-          <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-9 shadow-sm">
-            <button 
-              onClick={() => adjustDate(-1)}
-              className="p-2 text-slate-400 hover:text-slate-850 hover:bg-slate-50 transition-colors"
-              disabled={loading}
-              title={viewType === 'daily' ? '하루 전' : '한 달 전'}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            
-            <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
-              <span>
-                {viewType === 'daily' 
-                  ? `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월 ${selectedDate.split('-')[2]}일`
-                  : `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월`
-                }
-              </span>
-              <input 
-                type="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                disabled={loading}
-              />
+        {activeSubTab !== 'issueClients' && (
+          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+            {/* Toggle Daily/Monthly */}
+            <div className="flex bg-white border border-slate-200 rounded-lg p-0.5 h-9 shadow-sm">
+              <button
+                onClick={() => setViewType('daily')}
+                className={`px-3 text-xs font-semibold rounded-md transition-all ${
+                  viewType === 'daily' 
+                    ? 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20' 
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                일별
+              </button>
+              <button
+                onClick={() => setViewType('monthly')}
+                className={`px-3 text-xs font-semibold rounded-md transition-all ${
+                  viewType === 'monthly' 
+                    ? 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20' 
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                월별
+              </button>
             </div>
-            
-            <button 
-              onClick={() => adjustDate(1)}
-              className="p-2 text-slate-400 hover:text-slate-850 hover:bg-slate-50 transition-colors"
-              disabled={loading}
-              title={viewType === 'daily' ? '하루 후' : '한 달 후'}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+
+            {/* Date controls */}
+            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-9 shadow-sm">
+              <button 
+                onClick={() => adjustDate(-1)}
+                className="p-2 text-slate-400 hover:text-slate-850 hover:bg-slate-50 transition-colors"
+                disabled={loading}
+                title={viewType === 'daily' ? '하루 전' : '한 달 전'}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              
+              <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
+                <span>
+                  {viewType === 'daily' 
+                    ? `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월 ${selectedDate.split('-')[2]}일`
+                    : `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월`
+                  }
+                </span>
+                <input 
+                  type="date"
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  disabled={loading}
+                />
+              </div>
+              
+              <button 
+                onClick={() => adjustDate(1)}
+                className="p-2 text-slate-400 hover:text-slate-850 hover:bg-slate-50 transition-colors"
+                disabled={loading}
+                title={viewType === 'daily' ? '하루 후' : '한 달 후'}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Sub Tabs Navigation */}
@@ -652,45 +737,63 @@ export default function CollectionsPage() {
           <span>수금 예정 & 장부 크로스체크</span>
           <span className="px-1.5 py-0.5 text-[9px] bg-slate-100 text-slate-600 rounded-full font-mono">신규</span>
         </button>
+        <button
+          onClick={() => setActiveSubTab('issueClients')}
+          className={`pb-3 text-xs sm:text-sm font-semibold px-4 border-b-2 transition-all duration-150 flex items-center gap-1.5 ${
+            activeSubTab === 'issueClients'
+              ? 'border-amber-600 text-amber-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <span>⚠️ 이슈 거래처 관리 (Watchlist)</span>
+          {Object.keys(activeIssueClientsMap).length > 0 && (
+            <span className="px-1.5 py-0.5 text-[9px] bg-amber-100 text-amber-800 font-bold rounded-full font-mono">
+              {Object.keys(activeIssueClientsMap).length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Search Bar & Filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex flex-wrap items-center gap-3 w-full">
-          <div className="relative w-full sm:max-w-xs">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400" />
-            </span>
-            <input
-              type="text"
-              placeholder="거래처명 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-emerald focus:border-brand-emerald shadow-sm bg-white text-slate-800 placeholder-slate-400"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+      {activeSubTab !== 'issueClients' && (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-3 w-full">
+            <div className="relative w-full sm:max-w-xs">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Search className="h-4 w-4 text-slate-400" />
+              </span>
+              <input
+                type="text"
+                placeholder="거래처명 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-emerald focus:border-brand-emerald shadow-sm bg-white text-slate-800 placeholder-slate-400"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-          <button
-            onClick={() => setShowOnlyWithRemarks(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all duration-200 shadow-sm h-9 ${
-              showOnlyWithRemarks
-                ? 'bg-brand-emerald/10 text-brand-emerald border-brand-emerald/30 font-bold'
-                : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            <span>비고/메모가 있는 건만 보기</span>
-          </button>
+            <button
+              onClick={() => setShowOnlyWithRemarks(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all duration-200 shadow-sm h-9 ${
+                showOnlyWithRemarks
+                  ? 'bg-brand-emerald/10 text-brand-emerald border-brand-emerald/30 font-bold'
+                  : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              <span>비고/메모가 있는 건만 보기</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && activeSubTab === 'actual' && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs mb-4">
@@ -794,8 +897,10 @@ export default function CollectionsPage() {
             </div>
           </div>
         </div>
-      ) : (
-        /* Cross Check Tab Rendering */
+      ) : null}
+
+      {/* Cross Check Tab Rendering */}
+      {activeSubTab === 'crossCheck' && (
         <div className={`space-y-6 sm:space-y-8 ${expectedLoading ? 'opacity-40 pointer-events-none' : ''}`}>
           
           {/* 스마트 입금 매칭 추천 */}
@@ -1121,6 +1226,16 @@ export default function CollectionsPage() {
                           <td className="px-4 py-4 text-slate-800 font-bold">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span>{col.client}</span>
+                              {activeIssueClientsMap[col.client?.trim()] && (
+                                <button
+                                  onClick={() => setSelectedClientForHistory(activeIssueClientsMap[col.client?.trim()])}
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer shadow-sm"
+                                  title="수금 이슈 관리 거래처 (과거 비고 히스토리 보기)"
+                                >
+                                  <AlertTriangle className="h-2.5 w-2.5 text-amber-600" />
+                                  <span>이슈 관리</span>
+                                </button>
+                              )}
                               {col.isCarriedOver && (
                                 <span 
                                   className="px-1 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-100 shadow-sm shrink-0" 
@@ -1227,6 +1342,210 @@ export default function CollectionsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub Tab 3: Issue Clients Watchlist View */}
+      {activeSubTab === 'issueClients' && (
+        <div className="space-y-6">
+          {/* Watchlist Table */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span>수금 이슈 거래처 목록</span>
+                </h3>
+                <span className="text-xs text-slate-400">({issueClients.length}건)</span>
+              </div>
+              
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    const clientName = window.prompt('수동으로 이슈 목록에 추가할 거래처명을 입력해주세요:');
+                    if (clientName && clientName.trim()) {
+                      handleAddIssueClientRemark(clientName.trim());
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  <span>수동 거래처 추가</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400 tracking-wider">
+                    <th className="px-4 py-3 min-w-[140px]">거래처명</th>
+                    <th className="px-4 py-3 text-center min-w-[100px]">이슈 상태</th>
+                    <th className="px-4 py-3 min-w-[220px]">최근 비고 (체크 포인트)</th>
+                    <th className="px-4 py-3 min-w-[140px]">최근 업데이트 / 등록일</th>
+                    <th className="px-4 py-3 text-center min-w-[160px]">비고 이력 타임라인</th>
+                    <th className="px-4 py-3 text-center min-w-[160px]">이슈 상태 관리 (빼기/재지정)</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-100">
+                  {issueClients.length > 0 ? (
+                    issueClients.map((item) => {
+                      const isActive = item.status === 'ACTIVE';
+                      return (
+                        <tr key={item.client} className={`hover:bg-slate-50/80 transition-colors ${isActive ? 'bg-amber-50/20' : 'bg-slate-50/40'}`}>
+                          <td className="px-4 py-4 font-bold text-slate-800">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.client}</span>
+                              {isActive && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                                  이슈 관리중
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            {isActive ? (
+                              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>이슈지속</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>정상해제</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-slate-700">
+                            <div className="font-medium whitespace-pre-wrap break-all text-[11px] leading-relaxed">
+                              {item.latestRemarks || '기록된 비고 없음'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 font-mono text-slate-500 text-[11px]">
+                            <div>{item.updatedAt ? item.updatedAt.split('T')[0] : '-'}</div>
+                            <div className="text-[9px] text-slate-400 font-normal">최초등록: {item.createdAt ? item.createdAt.split('T')[0] : '-'}</div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => setSelectedClientForHistory(item)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-sm"
+                            >
+                              <span>전체 이력 ({item.remarksHistory?.length || 0}건)</span>
+                            </button>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => handleAddIssueClientRemark(item.client)}
+                                className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded transition-colors"
+                                title="추가 코멘트 작성"
+                              >
+                                + 코멘트
+                              </button>
+                              <button
+                                onClick={() => handleToggleIssueStatus(item.client, item.status)}
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded transition-colors shadow-sm ${
+                                  isActive
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700'
+                                    : 'bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700'
+                                }`}
+                              >
+                                {isActive ? '✅ 리스트에서 빼기 (해제)' : '🔄 이슈 재지정'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
+                        등록되거나 수집된 이슈 거래처가 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal Popup */}
+      {selectedClientForHistory && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                    <span>[{selectedClientForHistory.client}]</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      {selectedClientForHistory.status === 'ACTIVE' ? '이슈 관리 중' : '정상 해제됨'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">수금 결재 및 비고 변경 누적 타임라인</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedClientForHistory(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+              <div className="border-l-2 border-amber-300 pl-4 space-y-4 ml-1">
+                {selectedClientForHistory.remarksHistory && selectedClientForHistory.remarksHistory.length > 0 ? (
+                  selectedClientForHistory.remarksHistory.map((h: any, i: number) => (
+                    <div key={h.id || i} className="relative group">
+                      <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-100" />
+                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400 mb-1">
+                          <span className="font-semibold text-slate-600">{h.date}</span>
+                          {h.amount && <span className="text-amber-700 font-bold">금액: {Number(h.amount).toLocaleString()}원</span>}
+                        </div>
+                        <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">
+                          {h.remarks}
+                        </p>
+                        {(h.dueDate || h.actualDate) && (
+                          <div className="mt-2 text-[10px] text-slate-400 border-t border-slate-200/50 pt-1.5 flex items-center gap-3">
+                            {h.dueDate && <span>예정일: {h.dueDate}</span>}
+                            {h.actualDate && <span>실제수금일: {h.actualDate}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 italic">기록된 비고 이력이 없습니다.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-150 bg-slate-50 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  handleAddIssueClientRemark(selectedClientForHistory.client);
+                  setSelectedClientForHistory(null);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>+ 새 코멘트 추가</span>
+              </button>
+              <button
+                onClick={() => setSelectedClientForHistory(null)}
+                className="px-4 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors shadow-sm"
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>
