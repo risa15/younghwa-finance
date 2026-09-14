@@ -456,22 +456,6 @@ export default function CollectionsPage() {
       });
 
       if (!res.ok) throw new Error('코멘트 등록에 실패했습니다.');
-
-      // Also sync remark to Google Sheets if matching row exists in expectedCollections
-      const matchingExp = expectedCollections.find(c => getCleanKey(c.client) === cleanKey);
-      if (matchingExp && matchingExp.rowIndex) {
-        fetch('/api/expected-collections/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rowIndex: matchingExp.rowIndex,
-            actualDate: matchingExp.actualDate || '',
-            remarks: newRemark,
-            client: matchingExp.client
-          })
-        }).catch(err => console.error('Failed to sync remark to Google Sheet:', err));
-      }
-
       fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '코멘트 등록 중 오류가 발생했습니다.');
