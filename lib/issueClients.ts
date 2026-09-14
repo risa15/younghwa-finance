@@ -19,25 +19,29 @@ export interface IssueClientRecord {
   updatedAt: string;
 }
 
-const DATA_FILE_PATH = path.join(process.cwd(), 'scratch', 'issue_clients.json');
-
-// Empty clean state - strictly no hardcoded demo data in production
-let inMemoryIssueClients: Record<string, IssueClientRecord> = {};
-
-function ensureDirectoryExists(filePath: string) {
-  const dirname = path.dirname(filePath);
-  if (fs.existsSync(dirname)) {
-    return true;
+// In serverless environment (e.g. Vercel), fallback to /tmp if cwd is read-only
+const getFilePath = () => {
+  try {
+    const primaryPath = path.join(process.cwd(), 'scratch', 'issue_clients.json');
+    const dirname = path.dirname(primaryPath);
+    if (!fs.existsSync(dirname)) {
+      fs.mkdirSync(dirname, { recursive: true });
+    }
+    return primaryPath;
+  } catch (e) {
+    return path.join('/tmp', 'issue_clients.json');
   }
-  ensureDirectoryExists(dirname);
-  fs.mkdirSync(dirname);
-}
+};
+
+let inMemoryIssueClients: Record<string, IssueClientRecord> = {};
 
 function loadData(): Record<string, IssueClientRecord> {
   try {
-    if (fs.existsSync(DATA_FILE_PATH)) {
-      const data = fs.readFileSync(DATA_FILE_PATH, 'utf-8');
+    const filePath = getFilePath();
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
       const parsed = JSON.parse(data);
+      inMemoryIssueClients = parsed;
       return parsed;
     }
   } catch (err) {
@@ -48,8 +52,8 @@ function loadData(): Record<string, IssueClientRecord> {
 
 function saveData(data: Record<string, IssueClientRecord>) {
   try {
-    ensureDirectoryExists(DATA_FILE_PATH);
-    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    const filePath = getFilePath();
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     inMemoryIssueClients = data;
   } catch (err) {
     console.error('Failed to save issue_clients.json:', err);
@@ -71,7 +75,8 @@ export function getIssueClient(client: string): IssueClientRecord | undefined {
 export function addOrUpdateIssueClient(
   clientName: string,
   remarks: string,
-  extra?: { amount?: number; dueDate?: string; actualDate?: string }
+  extra?: { amount?: number; dueDate?: string; actualDate?: string },
+  options?: { isAutoSync?: boolean }
 ): IssueClientRecord {
   const data = loadData();
   const cleanKey = clientName.trim();
@@ -80,6 +85,11 @@ export function addOrUpdateIssueClient(
 
   const existing = data[cleanKey];
 
+  // If auto-syncing from sheet and client already exists in Watchlist, PRESERVE existing status and history!
+  if (options?.isAutoSync && existing) {
+    return existing;
+  }
+
   if (!existing) {
     const newRecord: IssueClientRecord = {
       client: cleanKey,
@@ -87,7 +97,7 @@ export function addOrUpdateIssueClient(
       latestRemarks: remarks,
       remarksHistory: [
         {
-          id: `${Date.now()}-1`,
+          id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           date: dateStr,
           remarks,
           amount: extra?.amount,
@@ -102,28 +112,21 @@ export function addOrUpdateIssueClient(
     saveData(data);
     return newRecord;
   } else {
-    const lastHistory = existing.remarksHistory[0];
-    const isSameDayAndRemarks = lastHistory && lastHistory.date === dateStr && lastHistory.remarks === remarks;
+    // Adding/updating remarks manually by user
+    const newHistoryItem: RemarksHistoryItem = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      date: dateStr,
+      remarks,
+      amount: extra?.amount || existing.remarksHistory[0]?.amount,
+      dueDate: extra?.dueDate || existing.remarksHistory[0]?.dueDate,
+      actualDate: extra?.actualDate || existing.remarksHistory[0]?.actualDate
+    };
 
-    const historyItems = isSameDayAndRemarks
-      ? existing.remarksHistory
-      : [
-          {
-            id: `${Date.now()}-${existing.remarksHistory.length + 1}`,
-            date: dateStr,
-            remarks,
-            amount: extra?.amount,
-            dueDate: extra?.dueDate,
-            actualDate: extra?.actualDate
-          },
-          ...existing.remarksHistory
-        ];
-
+    // Keep existing status (e.g. RESOLVED remains RESOLVED unless reactivated explicitly)
     const updatedRecord: IssueClientRecord = {
       ...existing,
-      status: 'ACTIVE',
       latestRemarks: remarks,
-      remarksHistory: historyItems,
+      remarksHistory: [newHistoryItem, ...existing.remarksHistory],
       updatedAt: now
     };
     data[cleanKey] = updatedRecord;
@@ -140,12 +143,13 @@ export function toggleIssueClientStatus(clientName: string, status: 'ACTIVE' | '
     return null;
   }
 
-  data[cleanKey] = {
+  const updatedRecord: IssueClientRecord = {
     ...data[cleanKey],
     status,
     updatedAt: new Date().toISOString()
   };
 
+  data[cleanKey] = updatedRecord;
   saveData(data);
-  return data[cleanKey];
+  return updatedRecord;
 }

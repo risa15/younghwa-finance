@@ -10,17 +10,22 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Auto-sync all existing remarks from expected collections
+    // Auto-sync remarks with isAutoSync: true to preserve existing status & history
     try {
       const expRes = await fetchExpectedCollections();
       if (expRes.data && expRes.data.length > 0) {
         expRes.data.forEach(item => {
           if (item.client && item.client.trim() && item.remarks && item.remarks.trim()) {
-            addOrUpdateIssueClient(item.client.trim(), item.remarks.trim(), {
-              amount: item.amount,
-              dueDate: item.dueDate,
-              actualDate: item.actualDate
-            });
+            addOrUpdateIssueClient(
+              item.client.trim(), 
+              item.remarks.trim(), 
+              {
+                amount: item.amount,
+                dueDate: item.dueDate,
+                actualDate: item.actualDate
+              },
+              { isAutoSync: true }
+            );
           }
         });
       }
