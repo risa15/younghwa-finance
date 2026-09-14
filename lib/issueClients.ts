@@ -21,7 +21,7 @@ export interface IssueClientRecord {
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'scratch', 'issue_clients.json');
 
-// In-memory fallback
+// Rich In-memory Seed Data
 let inMemoryIssueClients: Record<string, IssueClientRecord> = {
   "석진종합포장": {
     client: "석진종합포장",
@@ -39,6 +39,72 @@ let inMemoryIssueClients: Record<string, IssueClientRecord> = {
     ],
     createdAt: "2026-08-15T00:00:00.000Z",
     updatedAt: "2026-08-15T00:00:00.000Z"
+  },
+  "진아로지스틱스㈜": {
+    client: "진아로지스틱스㈜",
+    status: "ACTIVE",
+    latestRemarks: "분할 입금 및 미수금 입금 차액 모니터링 건",
+    remarksHistory: [
+      {
+        id: "demo-2",
+        date: "2026-06-15",
+        remarks: "분할 입금 및 미수금 입금 차액 모니터링 건",
+        amount: 15000000,
+        dueDate: "2026-06-16"
+      }
+    ],
+    createdAt: "2026-06-15T00:00:00.000Z",
+    updatedAt: "2026-06-15T00:00:00.000Z"
+  },
+  "로뎀시스템체어": {
+    client: "로뎀시스템체어",
+    status: "ACTIVE",
+    latestRemarks: "단가 조정으로 차액 발생 가능성, 입금확인 필요",
+    remarksHistory: [
+      {
+        id: "demo-3",
+        date: "2026-06-16",
+        remarks: "단가 조정으로 차액 발생 가능성, 입금확인 필요",
+        amount: 2800000,
+        dueDate: "2026-06-16",
+        actualDate: "2026-06-16"
+      }
+    ],
+    createdAt: "2026-06-16T00:00:00.000Z",
+    updatedAt: "2026-06-16T00:00:00.000Z"
+  },
+  "유닉스 코퍼레이션": {
+    client: "유닉스 코퍼레이션",
+    status: "ACTIVE",
+    latestRemarks: "과거 결재 지연 및 미수 연체 이력 보유",
+    remarksHistory: [
+      {
+        id: "demo-4",
+        date: "2026-06-14",
+        remarks: "과거 결재 지연 및 미수 연체 이력 보유",
+        amount: 4200000,
+        dueDate: "2026-06-14"
+      }
+    ],
+    createdAt: "2026-06-14T00:00:00.000Z",
+    updatedAt: "2026-06-14T00:00:00.000Z"
+  },
+  "브랜드팩": {
+    client: "브랜드팩",
+    status: "RESOLVED",
+    latestRemarks: "입금명의 다름 (브랜드팩(주) 명의로 입금 확인 완료)",
+    remarksHistory: [
+      {
+        id: "demo-5",
+        date: "2026-06-16",
+        remarks: "입금명의 다름 (브랜드팩(주) 명의로 입금 확인 완료)",
+        amount: 2804961,
+        dueDate: "2026-06-16",
+        actualDate: "2026-06-16"
+      }
+    ],
+    createdAt: "2026-06-16T00:00:00.000Z",
+    updatedAt: "2026-06-16T00:00:00.000Z"
   }
 };
 
@@ -55,11 +121,24 @@ function loadData(): Record<string, IssueClientRecord> {
   try {
     if (fs.existsSync(DATA_FILE_PATH)) {
       const data = fs.readFileSync(DATA_FILE_PATH, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      // Merge with seed data if keys don't exist
+      let updated = false;
+      for (const [key, val] of Object.entries(inMemoryIssueClients)) {
+        if (!parsed[key]) {
+          parsed[key] = val;
+          updated = true;
+        }
+      }
+      if (updated) {
+        saveData(parsed);
+      }
+      return parsed;
     }
   } catch (err) {
     console.error('Failed to read issue_clients.json, using in-memory store:', err);
   }
+  saveData(inMemoryIssueClients);
   return inMemoryIssueClients;
 }
 
@@ -138,7 +217,7 @@ export function addOrUpdateIssueClient(
 
     const updatedRecord: IssueClientRecord = {
       ...existing,
-      status: 'ACTIVE', // Reactivate as issue if new remarks added
+      status: 'ACTIVE',
       latestRemarks: remarks,
       remarksHistory: historyItems,
       updatedAt: now
