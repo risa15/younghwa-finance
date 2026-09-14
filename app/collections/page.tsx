@@ -1524,8 +1524,8 @@ export default function CollectionsPage() {
                         const customHist = customRecord?.history || [];
                         const itemHist = item.remarksHistory || [];
                         const combinedHist = [...customHist];
-                        itemHist.forEach(h => {
-                          if (!combinedHist.some(c => c.id === h.id || (c.date === h.date && c.remarks === h.remarks))) {
+                        itemHist.forEach((h: any) => {
+                          if (!combinedHist.some((c: any) => c.id === h.id || (c.date === h.date && c.remarks === h.remarks))) {
                             combinedHist.push(h);
                           }
                         });
