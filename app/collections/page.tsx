@@ -95,13 +95,25 @@ export default function CollectionsPage() {
     fetchIssueClients();
   }, [fetchIssueClients]);
 
+  // Helper for normalizing client names
+  const getCleanKey = (name: string): string => {
+    if (!name) return '';
+    return name
+      .replace(/\(주\)/g, '')
+      .replace(/주식회사/g, '')
+      .replace(/㈜/g, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  };
+
   // Map of active issue clients for quick lookup and badge display
   const activeIssueClientsMap = useMemo(() => {
     const map: Record<string, any> = {};
     issueClients.forEach(ic => {
-      const cleanName = ic.client.trim();
-      if (ic.status === 'ACTIVE' && !dismissedClients.includes(cleanName)) {
-        map[cleanName] = ic;
+      const key = getCleanKey(ic.client);
+      const isDismissed = dismissedClients.some(d => getCleanKey(d) === key);
+      if (ic.status === 'ACTIVE' && !isDismissed) {
+        map[key] = ic;
       }
     });
     return map;
@@ -330,26 +342,26 @@ export default function CollectionsPage() {
   // Handle toggling issue client status (ACTIVE <-> RESOLVED)
   const handleToggleIssueStatus = async (clientName: string, currentStatus: string) => {
     const cleanName = clientName.trim();
-    const isCurrentlyDismissed = dismissedClients.includes(cleanName) || currentStatus === 'RESOLVED';
+    const cleanKey = getCleanKey(cleanName);
+    const isCurrentlyDismissed = dismissedClients.some(d => getCleanKey(d) === cleanKey) || currentStatus === 'RESOLVED';
     const newStatus = isCurrentlyDismissed ? 'ACTIVE' : 'RESOLVED';
     const actionText = newStatus === 'RESOLVED' ? '이슈 리스트에서 제외' : '이슈 관리 리스트에 재지정';
 
     if (!window.confirm(`[${cleanName}] 거래처를 ${actionText}하시겠습니까?`)) return;
 
     // 1. Instant Optimistic UI & localStorage Update
-    if (newStatus === 'RESOLVED') {
-      const updatedDismissed = Array.from(new Set([...dismissedClients, cleanName]));
-      setDismissedClients(updatedDismissed);
+    setDismissedClients(prev => {
+      let updatedDismissed: string[];
+      if (newStatus === 'RESOLVED') {
+        updatedDismissed = Array.from(new Set([...prev, cleanName]));
+      } else {
+        updatedDismissed = prev.filter(c => getCleanKey(c) !== cleanKey);
+      }
       try {
         localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
       } catch (e) {}
-    } else {
-      const updatedDismissed = dismissedClients.filter(c => c !== cleanName);
-      setDismissedClients(updatedDismissed);
-      try {
-        localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
-      } catch (e) {}
-    }
+      return updatedDismissed;
+    });
 
     try {
       const res = await fetch('/api/issue-clients', {
@@ -368,26 +380,25 @@ export default function CollectionsPage() {
   // Handle manual add comment to issue client
   const handleAddIssueClientRemark = async (clientName: string) => {
     const cleanName = clientName.trim();
+    const cleanKey = getCleanKey(cleanName);
     const remarksInput = window.prompt(`[${cleanName}] 거래처의 관리 코멘트를 입력해주세요:`);
     if (!remarksInput || !remarksInput.trim()) return;
 
     const newRemark = remarksInput.trim();
     const todayStr = new Date().toISOString().substring(0, 10);
 
-    // 1. Instant Optimistic UI Update for remarks
-    const existingRecord = issueClients.find(c => c.client.trim() === cleanName);
-    const existingHistory = existingRecord?.remarksHistory || [];
     const newHistoryItem = {
       id: `${Date.now()}-opt`,
       date: todayStr,
       remarks: newRemark
     };
 
+    // 1. Instant Optimistic UI Update for customRemarksMap using normalized cleanKey
     setCustomRemarksMap(prev => {
-      const prevClientHistory = prev[cleanName]?.history || existingHistory;
+      const prevClientHistory = prev[cleanKey]?.history || [];
       const updatedMap = {
         ...prev,
-        [cleanName]: {
+        [cleanKey]: {
           remarks: newRemark,
           history: [newHistoryItem, ...prevClientHistory]
         }
@@ -398,16 +409,18 @@ export default function CollectionsPage() {
       return updatedMap;
     });
 
+    // 2. Instant Optimistic UI Update for issueClients state
     setIssueClients(prev => {
-      const existingIdx = prev.findIndex(c => c.client.trim() === cleanName);
+      const existingIdx = prev.findIndex(c => getCleanKey(c.client) === cleanKey);
 
       if (existingIdx >= 0) {
         const updatedList = [...prev];
+        const prevHistory = updatedList[existingIdx].remarksHistory || [];
         updatedList[existingIdx] = {
           ...updatedList[existingIdx],
           status: 'ACTIVE',
           latestRemarks: newRemark,
-          remarksHistory: [newHistoryItem, ...(updatedList[existingIdx].remarksHistory || [])],
+          remarksHistory: [newHistoryItem, ...prevHistory],
           updatedAt: new Date().toISOString()
         };
         return updatedList;
@@ -426,14 +439,14 @@ export default function CollectionsPage() {
       }
     });
 
-    // Ensure client is reactivated from dismissed list
-    if (dismissedClients.includes(cleanName)) {
-      const updatedDismissed = dismissedClients.filter(c => c !== cleanName);
-      setDismissedClients(updatedDismissed);
+    // 3. Ensure client is reactivated from dismissed list if needed
+    setDismissedClients(prev => {
+      const updated = prev.filter(c => getCleanKey(c) !== cleanKey);
       try {
-        localStorage.setItem('dismissedIssueClients', JSON.stringify(updatedDismissed));
+        localStorage.setItem('dismissedIssueClients', JSON.stringify(updated));
       } catch (e) {}
-    }
+      return updated;
+    });
 
     try {
       const res = await fetch('/api/issue-clients', {
@@ -443,6 +456,22 @@ export default function CollectionsPage() {
       });
 
       if (!res.ok) throw new Error('코멘트 등록에 실패했습니다.');
+
+      // Also sync remark to Google Sheets if matching row exists in expectedCollections
+      const matchingExp = expectedCollections.find(c => getCleanKey(c.client) === cleanKey);
+      if (matchingExp && matchingExp.rowIndex) {
+        fetch('/api/expected-collections/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rowIndex: matchingExp.rowIndex,
+            actualDate: matchingExp.actualDate || '',
+            remarks: newRemark,
+            client: matchingExp.client
+          })
+        }).catch(err => console.error('Failed to sync remark to Google Sheet:', err));
+      }
+
       fetchIssueClients();
     } catch (err: any) {
       alert(err.message || '코멘트 등록 중 오류가 발생했습니다.');
@@ -1452,7 +1481,7 @@ export default function CollectionsPage() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <span>수금 이슈 거래처 목록</span>
                 </h3>
-                <span className="text-xs text-slate-400">({issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim())).length}건)</span>
+                <span className="text-xs text-slate-400">({issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.some(d => getCleanKey(d) === getCleanKey(c.client))).length}건)</span>
               </div>
               
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1463,7 +1492,7 @@ export default function CollectionsPage() {
                       handleAddIssueClientRemark(clientName.trim());
                     }
                   }}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm cursor-pointer"
                 >
                   <Edit className="h-3.5 w-3.5" />
                   <span>수동 거래처 추가</span>
@@ -1483,15 +1512,24 @@ export default function CollectionsPage() {
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim())).length > 0 ? (
+                  {issueClients.filter(c => c.status === 'ACTIVE' && !dismissedClients.some(d => getCleanKey(d) === getCleanKey(c.client))).length > 0 ? (
                     issueClients
-                      .filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim()))
+                      .filter(c => c.status === 'ACTIVE' && !dismissedClients.some(d => getCleanKey(d) === getCleanKey(c.client)))
                       .sort((a, b) => a.client.localeCompare(b.client, 'ko'))
                       .map((item) => {
-                        const cleanClientName = item.client.trim();
-                        const displayRemarks = customRemarksMap[cleanClientName]?.remarks || item.latestRemarks || '기록된 비고 없음';
-                        const mergedHistory = customRemarksMap[cleanClientName]?.history || item.remarksHistory || [];
-                        const itemWithMergedHistory = { ...item, remarksHistory: mergedHistory };
+                        const cleanKey = getCleanKey(item.client);
+                        const customRecord = customRemarksMap[cleanKey];
+                        const displayRemarks = customRecord?.remarks || item.latestRemarks || '기록된 비고 없음';
+
+                        const customHist = customRecord?.history || [];
+                        const itemHist = item.remarksHistory || [];
+                        const combinedHist = [...customHist];
+                        itemHist.forEach(h => {
+                          if (!combinedHist.some(c => c.id === h.id || (c.date === h.date && c.remarks === h.remarks))) {
+                            combinedHist.push(h);
+                          }
+                        });
+                        const itemWithMergedHistory = { ...item, remarksHistory: combinedHist };
 
                         return (
                           <tr key={item.client} className="hover:bg-slate-50/80 transition-colors bg-white">
@@ -1505,7 +1543,7 @@ export default function CollectionsPage() {
                                 </div>
                                 <button
                                   onClick={() => handleAddIssueClientRemark(item.client)}
-                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold rounded transition-colors shrink-0 whitespace-nowrap shadow-2xs"
+                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold rounded transition-colors shrink-0 whitespace-nowrap shadow-2xs cursor-pointer"
                                   title="추가 코멘트 작성"
                                 >
                                   + 코멘트
@@ -1519,15 +1557,15 @@ export default function CollectionsPage() {
                             <td className="px-4 py-4 text-center">
                               <button
                                 onClick={() => setSelectedClientForHistory(itemWithMergedHistory)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-2xs"
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-2xs cursor-pointer"
                               >
-                                <span>이력 ({mergedHistory.length}건)</span>
+                                <span>이력 ({combinedHist.length}건)</span>
                               </button>
                             </td>
                             <td className="px-4 py-4 text-center">
                               <button
                                 onClick={() => handleToggleIssueStatus(item.client, item.status)}
-                                className="px-3 py-1 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-600 font-bold text-xs rounded transition-colors shadow-2xs whitespace-nowrap"
+                                className="px-3 py-1 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-600 font-bold text-xs rounded transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
                                 title="이슈 목록에서 제외"
                               >
                                 제외

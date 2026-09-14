@@ -61,6 +61,16 @@ function saveData(data: Record<string, IssueClientRecord>) {
   }
 }
 
+export function getCleanKey(name: string): string {
+  if (!name) return '';
+  return name
+    .replace(/\(주\)/g, '')
+    .replace(/주식회사/g, '')
+    .replace(/㈜/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
 export function getAllIssueClients(): IssueClientRecord[] {
   const data = loadData();
   return Object.values(data).sort((a, b) => a.client.localeCompare(b.client, 'ko'));
@@ -68,8 +78,9 @@ export function getAllIssueClients(): IssueClientRecord[] {
 
 export function getIssueClient(client: string): IssueClientRecord | undefined {
   const data = loadData();
-  const cleanKey = client.trim();
-  return data[cleanKey];
+  const targetKey = getCleanKey(client);
+  const matchedKey = Object.keys(data).find(k => getCleanKey(k) === targetKey);
+  return matchedKey ? data[matchedKey] : undefined;
 }
 
 export function addOrUpdateIssueClient(
@@ -79,11 +90,13 @@ export function addOrUpdateIssueClient(
   options?: { isAutoSync?: boolean }
 ): IssueClientRecord {
   const data = loadData();
-  const cleanKey = clientName.trim();
+  const cleanKey = getCleanKey(clientName);
+  const trimmedName = clientName.trim();
   const now = new Date().toISOString();
   const dateStr = now.split('T')[0];
 
-  const existing = data[cleanKey];
+  const existingEntryKey = Object.keys(data).find(k => getCleanKey(k) === cleanKey);
+  const existing = existingEntryKey ? data[existingEntryKey] : undefined;
 
   // If auto-syncing from sheet and client already exists in Watchlist, PRESERVE existing status and history!
   if (options?.isAutoSync && existing) {
@@ -92,7 +105,7 @@ export function addOrUpdateIssueClient(
 
   if (!existing) {
     const newRecord: IssueClientRecord = {
-      client: cleanKey,
+      client: trimmedName,
       status: 'ACTIVE',
       latestRemarks: remarks,
       remarksHistory: [
@@ -108,7 +121,7 @@ export function addOrUpdateIssueClient(
       createdAt: now,
       updatedAt: now
     };
-    data[cleanKey] = newRecord;
+    data[trimmedName] = newRecord;
     saveData(data);
     return newRecord;
   } else {
@@ -129,7 +142,7 @@ export function addOrUpdateIssueClient(
       remarksHistory: [newHistoryItem, ...existing.remarksHistory],
       updatedAt: now
     };
-    data[cleanKey] = updatedRecord;
+    data[existingEntryKey!] = updatedRecord;
     saveData(data);
     return updatedRecord;
   }
@@ -137,19 +150,20 @@ export function addOrUpdateIssueClient(
 
 export function toggleIssueClientStatus(clientName: string, status: 'ACTIVE' | 'RESOLVED'): IssueClientRecord | null {
   const data = loadData();
-  const cleanKey = clientName.trim();
+  const cleanKey = getCleanKey(clientName);
 
-  if (!data[cleanKey]) {
+  const existingEntryKey = Object.keys(data).find(k => getCleanKey(k) === cleanKey);
+  if (!existingEntryKey || !data[existingEntryKey]) {
     return null;
   }
 
   const updatedRecord: IssueClientRecord = {
-    ...data[cleanKey],
+    ...data[existingEntryKey],
     status,
     updatedAt: new Date().toISOString()
   };
 
-  data[cleanKey] = updatedRecord;
+  data[existingEntryKey] = updatedRecord;
   saveData(data);
   return updatedRecord;
 }
