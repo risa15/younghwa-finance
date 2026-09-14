@@ -59,17 +59,22 @@ export default function CollectionsPage() {
   // Issue clients states
   const [issueClients, setIssueClients] = useState<any[]>([]);
   const [dismissedClients, setDismissedClients] = useState<string[]>([]);
+  const [customRemarksMap, setCustomRemarksMap] = useState<Record<string, { remarks: string; history: any[] }>>({});
   const [selectedClientForHistory, setSelectedClientForHistory] = useState<any | null>(null);
 
-  // Load dismissed issue clients from localStorage
+  // Load dismissed issue clients & custom remarks from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('dismissedIssueClients');
-      if (saved) {
-        setDismissedClients(JSON.parse(saved));
+      const savedDismissed = localStorage.getItem('dismissedIssueClients');
+      if (savedDismissed) {
+        setDismissedClients(JSON.parse(savedDismissed));
+      }
+      const savedRemarks = localStorage.getItem('customIssueRemarks');
+      if (savedRemarks) {
+        setCustomRemarksMap(JSON.parse(savedRemarks));
       }
     } catch (e) {
-      console.error('Failed to parse dismissedIssueClients from localStorage:', e);
+      console.error('Failed to parse issue clients state from localStorage:', e);
     }
   }, []);
 
@@ -370,13 +375,31 @@ export default function CollectionsPage() {
     const todayStr = new Date().toISOString().substring(0, 10);
 
     // 1. Instant Optimistic UI Update for remarks
+    const existingRecord = issueClients.find(c => c.client.trim() === cleanName);
+    const existingHistory = existingRecord?.remarksHistory || [];
+    const newHistoryItem = {
+      id: `${Date.now()}-opt`,
+      date: todayStr,
+      remarks: newRemark
+    };
+
+    setCustomRemarksMap(prev => {
+      const prevClientHistory = prev[cleanName]?.history || existingHistory;
+      const updatedMap = {
+        ...prev,
+        [cleanName]: {
+          remarks: newRemark,
+          history: [newHistoryItem, ...prevClientHistory]
+        }
+      };
+      try {
+        localStorage.setItem('customIssueRemarks', JSON.stringify(updatedMap));
+      } catch (e) {}
+      return updatedMap;
+    });
+
     setIssueClients(prev => {
       const existingIdx = prev.findIndex(c => c.client.trim() === cleanName);
-      const newHistoryItem = {
-        id: `${Date.now()}-opt`,
-        date: todayStr,
-        remarks: newRemark
-      };
 
       if (existingIdx >= 0) {
         const updatedList = [...prev];
@@ -1465,6 +1488,11 @@ export default function CollectionsPage() {
                       .filter(c => c.status === 'ACTIVE' && !dismissedClients.includes(c.client.trim()))
                       .sort((a, b) => a.client.localeCompare(b.client, 'ko'))
                       .map((item) => {
+                        const cleanClientName = item.client.trim();
+                        const displayRemarks = customRemarksMap[cleanClientName]?.remarks || item.latestRemarks || '기록된 비고 없음';
+                        const mergedHistory = customRemarksMap[cleanClientName]?.history || item.remarksHistory || [];
+                        const itemWithMergedHistory = { ...item, remarksHistory: mergedHistory };
+
                         return (
                           <tr key={item.client} className="hover:bg-slate-50/80 transition-colors bg-white">
                             <td className="px-4 py-4 font-bold text-slate-800">
@@ -1473,7 +1501,7 @@ export default function CollectionsPage() {
                             <td className="px-4 py-4 text-slate-700">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="font-medium whitespace-pre-wrap break-all text-[11px] leading-relaxed">
-                                  {item.latestRemarks || '기록된 비고 없음'}
+                                  {displayRemarks}
                                 </div>
                                 <button
                                   onClick={() => handleAddIssueClientRemark(item.client)}
@@ -1490,10 +1518,10 @@ export default function CollectionsPage() {
                             </td>
                             <td className="px-4 py-4 text-center">
                               <button
-                                onClick={() => setSelectedClientForHistory(item)}
+                                onClick={() => setSelectedClientForHistory(itemWithMergedHistory)}
                                 className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold rounded text-[11px] transition-colors inline-flex items-center gap-1 shadow-2xs"
                               >
-                                <span>이력 ({item.remarksHistory?.length || 0}건)</span>
+                                <span>이력 ({mergedHistory.length}건)</span>
                               </button>
                             </td>
                             <td className="px-4 py-4 text-center">
