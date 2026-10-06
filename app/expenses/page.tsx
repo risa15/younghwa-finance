@@ -2,20 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
-import { 
-  TrendingDown, 
-  Calendar, 
   ChevronLeft, 
   ChevronRight,
-  ListTodo,
-  PieChartIcon
+  ListFilter,
+  Receipt
 } from 'lucide-react';
 import { CashTransaction } from '@/lib/types';
 import { formatKoreanShorthand } from '@/components/KPICard';
@@ -131,13 +121,6 @@ export default function ExpensesPage() {
   const [viewType, setViewType] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'detail' | 'category'>('detail');
-
-  // Mount state for Recharts hydration safety
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Fetch transactions
   useEffect(() => {
@@ -204,30 +187,10 @@ export default function ExpensesPage() {
     }));
   }, [filteredExpenses]);
 
-
   // Sum of filtered expenses
   const totalAmount = useMemo(() => {
     return classifiedExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [classifiedExpenses]);
-
-  // Aggregate category distributions for Recharts PieChart
-  const pieChartData = useMemo(() => {
-    if (classifiedExpenses.length === 0) return [];
-    
-    const categoryMap: Record<string, number> = {};
-    classifiedExpenses.forEach(e => {
-      categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
-    });
-
-    return Object.entries(categoryMap)
-      .map(([name, value]) => ({
-        name,
-        value,
-        percentage: totalAmount > 0 ? ((value / totalAmount) * 100).toFixed(1) : '0'
-      }))
-      // Sort largest first
-      .sort((a, b) => b.value - a.value);
-  }, [classifiedExpenses, totalAmount]);
 
   // Aggregate category totals for table view
   const categorySummaryData = useMemo(() => {
@@ -273,26 +236,6 @@ export default function ExpensesPage() {
     setSelectedDate(e.target.value);
   };
 
-  // Custom tool tip for pie chart
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-navy-900/95 border border-navy-800 p-3.5 rounded-lg shadow-xl font-sans text-xs">
-          <p className="font-semibold mb-1" style={{ color: CATEGORY_COLORS[payload[0].name] }}>
-            {payload[0].name}
-          </p>
-          <p className="text-slate-200 font-bold">
-            지출액: <span className="font-mono text-sm">{payload[0].value.toLocaleString()}</span> 원
-          </p>
-          <p className="text-slate-400 font-semibold text-[10px] mt-0.5">
-            비율: {payload[0].payload.percentage}%
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <>
       {/* Header */}
@@ -302,7 +245,7 @@ export default function ExpensesPage() {
             <h2 className="text-xl font-bold text-slate-800 tracking-wide">지출 현황</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            회사 자금의 출금 거래 내역을 분석하고 비용 항목별 비중을 검토합니다.
+            회사 자금의 출금 거래 내역을 분석하고 비용 항목별 집계 표와 상세 내역을 검토합니다.
           </p>
         </div>
 
@@ -380,98 +323,113 @@ export default function ExpensesPage() {
       {/* Main content grid */}
       <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 ${loading ? 'opacity-40 pointer-events-none' : ''}`}>
         
-        {/* 1. Donut Chart (Left Column, takes 1 of 3 columns) */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-fit lg:col-span-1">
-          <div className="mb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">지출 항목 비중</h3>
+        {/* 1. Category Summary Table (Left Column, takes 1 of 3 columns) */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between h-fit lg:col-span-1">
+          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <ListFilter className="w-4 h-4 text-brand-rose" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">분류별 지출 집계 표</h3>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">항목별 합계 금액 및 비중</p>
             </div>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">분류별 지출 점유율 시각화</p>
+            <span className="text-[10px] font-bold text-brand-rose bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 font-mono">
+              {categorySummaryData.length}개 항목
+            </span>
           </div>
           
-          <div className="h-56 sm:h-64 w-full flex items-center justify-center font-sans text-xs">
-            {mounted && pieChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={75}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.name] || '#64748b'} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-slate-400 text-xs">
-                {mounted ? '지출 데이터가 없습니다.' : '차트를 불러오는 중...'}
-              </div>
-            )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
+                  <th className="px-4 py-2.5">분류</th>
+                  <th className="px-3 py-2.5 text-center">비율</th>
+                  <th className="px-2 py-2.5 text-center">건수</th>
+                  <th className="px-4 py-2.5 text-right">금액</th>
+                </tr>
+              </thead>
+              <tbody className="text-xs divide-y divide-slate-100">
+                {categorySummaryData.length > 0 ? (
+                  categorySummaryData.map((cat) => (
+                    <tr key={cat.name} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs" 
+                            style={{ backgroundColor: CATEGORY_COLORS[cat.name] || '#64748b' }}
+                          />
+                          <span className="font-bold text-slate-800 text-xs truncate max-w-[85px]" title={cat.name}>
+                            {cat.name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-mono font-bold text-[10px] text-slate-600">{cat.percentage}%</span>
+                          <div className="w-12 bg-slate-100 rounded-full h-1 overflow-hidden">
+                            <div 
+                              className="h-full rounded-full" 
+                              style={{ 
+                                width: `${cat.percentage}%`,
+                                backgroundColor: CATEGORY_COLORS[cat.name] || '#64748b'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-3 text-center font-mono text-slate-500 text-[11px]">
+                        {cat.count}건
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-extrabold text-slate-900 text-xs">
+                        {cat.amount.toLocaleString('ko-KR')} <span className="text-[10px] text-slate-400 font-normal">원</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-4 py-8 text-center text-slate-400 text-xs font-medium" colSpan={4}>
+                      지출 데이터가 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* Legend Items */}
-          {pieChartData.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2 text-[10px]">
-              {pieChartData.map((entry) => (
-                <div key={entry.name} className="flex items-center gap-1.5">
-                  <span 
-                    className="h-2 w-2 rounded-sm shrink-0" 
-                    style={{ backgroundColor: CATEGORY_COLORS[entry.name] }}
-                  ></span>
-                  <span className="text-slate-500 font-bold truncate max-w-[80px]" title={entry.name}>
-                    {entry.name}
-                  </span>
-                  <span className="text-slate-800 font-mono font-bold ml-auto">{entry.percentage}%</span>
-                </div>
-              ))}
+          {/* Table Summary Footer */}
+          <div className="px-4 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700">집계 합계</span>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-[10px] font-semibold text-slate-400">
+                ({formatKoreanShorthand(totalAmount)})
+              </span>
+              <span className="text-sm font-black text-brand-rose">
+                {totalAmount.toLocaleString('ko-KR')}
+              </span>
+              <span className="text-[10px] font-bold text-slate-500">원</span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* 2. Expense Details Table (Right Column, takes 2 of 3 columns) */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden lg:col-span-2">
-          <div className="px-6 py-3.5 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="flex items-center gap-3">
-              {/* Tab Selector */}
-              <div className="flex bg-slate-200/60 p-0.5 rounded-lg text-[11px] font-bold text-slate-500 shadow-inner">
-                <button
-                  onClick={() => setActiveTab('detail')}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    activeTab === 'detail'
-                      ? 'bg-white text-slate-800 shadow-sm font-extrabold'
-                      : 'hover:text-slate-800'
-                  }`}
-                >
-                  상세 내역
-                </button>
-                <button
-                  onClick={() => setActiveTab('category')}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    activeTab === 'category'
-                      ? 'bg-white text-slate-800 shadow-sm font-extrabold'
-                      : 'hover:text-slate-800'
-                  }`}
-                >
-                  분류별 집계
-                </button>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden lg:col-span-2 flex flex-col justify-between">
+          <div>
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-slate-600" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">상세 출금 내역 표</h3>
+                <span className="text-[10px] font-bold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-full font-mono ml-1">
+                  총 {classifiedExpenses.length}건
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-semibold font-mono">
+                조회 대상 기간: <span className="text-slate-700 font-bold">
+                  {viewType === 'daily' ? selectedDate : `${selectedDate.split('-')[0]}-${selectedDate.split('-')[1]}`}
+                </span>
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 font-semibold font-mono">
-              조회 대상 기간: <span className="text-slate-600">
-                {viewType === 'daily' ? selectedDate : `${selectedDate.split('-')[0]}-${selectedDate.split('-')[1]}`}
-              </span>
-            </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            {activeTab === 'detail' ? (
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
@@ -515,63 +473,11 @@ export default function ExpensesPage() {
                   )}
                 </tbody>
               </table>
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
-                    <th className="px-6 py-3">분류</th>
-                    <th className="px-6 py-3">비율</th>
-                    <th className="px-6 py-3 text-center">건수</th>
-                    <th className="px-6 py-3 text-right">합계 금액</th>
-                  </tr>
-                </thead>
-                <tbody className="text-xs divide-y divide-slate-100">
-                  {categorySummaryData.length > 0 ? (
-                    categorySummaryData.map((cat, idx) => (
-                      <tr key={`${cat.name}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <span 
-                              className="h-2.5 w-2.5 rounded-sm shrink-0" 
-                              style={{ backgroundColor: CATEGORY_COLORS[cat.name] }}
-                            ></span>
-                            <span className="font-bold text-slate-800">{cat.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 bg-slate-100 rounded-full h-1.5 overflow-hidden shrink-0">
-                              <div 
-                                className="h-full rounded-full" 
-                                style={{ 
-                                  width: `${cat.percentage}%`,
-                                  backgroundColor: CATEGORY_COLORS[cat.name]
-                                }}
-                              ></div>
-                            </div>
-                            <span className="font-semibold text-slate-500 font-mono text-[10px]">{cat.percentage}%</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center text-slate-600 font-medium font-mono">{cat.count}건</td>
-                        <td className="px-6 py-4 text-right font-mono font-bold text-slate-900">
-                          {cat.amount.toLocaleString('ko-KR')} 원
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={4}>
-                        지정된 일자에 등록된 지출(출금) 내역이 없습니다.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
+            </div>
           </div>
 
           {/* Table Footer Sum */}
-          <div className="px-6 py-4.5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               {viewType === 'daily' ? '일 지출 합계' : '월 누적 지출 합계'}
             </span>
