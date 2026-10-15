@@ -129,7 +129,7 @@ function calculateNextInterestDate(
 export default function LoansPage() {
   const [loans, setLoans] = useState<LoanStatus[]>([]);
   const [schedule, setSchedule] = useState<LoanScheduleMonth[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-06-10');
+  const [selectedDate, setSelectedDate] = useState<string>(() => formatDateStr(new Date()));
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
