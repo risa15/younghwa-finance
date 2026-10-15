@@ -19,17 +19,25 @@ export interface IssueClientRecord {
   updatedAt: string;
 }
 
+// 회사별로 이슈 거래처 데이터를 분리 저장 (영화포장은 기존 파일 유지)
+const getFileName = () => {
+  const company = (process.env.NEXT_PUBLIC_COMPANY_NAME || '영화포장').trim();
+  if (company === '영화포장') return 'issue_clients.json';
+  return `issue_clients_${company.replace(/[^0-9A-Za-z가-힣]/g, '')}.json`;
+};
+
 // In serverless environment (e.g. Vercel), fallback to /tmp if cwd is read-only
 const getFilePath = () => {
+  const fileName = getFileName();
   try {
-    const primaryPath = path.join(process.cwd(), 'scratch', 'issue_clients.json');
+    const primaryPath = path.join(process.cwd(), 'scratch', fileName);
     const dirname = path.dirname(primaryPath);
     if (!fs.existsSync(dirname)) {
       fs.mkdirSync(dirname, { recursive: true });
     }
     return primaryPath;
   } catch (e) {
-    return path.join('/tmp', 'issue_clients.json');
+    return path.join('/tmp', fileName);
   }
 };
 
