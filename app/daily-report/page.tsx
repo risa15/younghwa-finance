@@ -540,7 +540,7 @@ export default function DailyReportPage() {
                   {/* Company Signature Row */}
                   <tr className="font-bold border-none text-slate-900 bg-white">
                     <td className="px-2 py-4 border-none text-left text-xs tracking-wider" colSpan={7}>
-                      ㈜ 영 화 포 장
+                      ㈜ {(process.env.NEXT_PUBLIC_COMPANY_NAME || '영화포장').split('').join(' ')}
                     </td>
                   </tr>
 
