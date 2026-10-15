@@ -792,7 +792,11 @@ export default function CollectionsPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               
-              <div className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[130px]">
+              <div
+              onClick={(e) => { try { e.currentTarget.querySelector<HTMLInputElement>('input[type="date"]')?.showPicker(); } catch {} }}
+              className="relative px-3 flex items-center justify-center gap-2 border-x border-slate-200 hover:bg-slate-50 cursor-pointer h-full text-xs font-semibold text-slate-700 min-w-[155px]"
+            >
+                <Calendar className="h-3.5 w-3.5 text-slate-400" />
                 <span>
                   {viewType === 'daily' 
                     ? `${selectedDate.split('-')[0]}년 ${selectedDate.split('-')[1]}월 ${selectedDate.split('-')[2]}일`
@@ -803,7 +807,7 @@ export default function CollectionsPage() {
                   type="date"
                   value={selectedDate}
                   onChange={handleDateChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
                   disabled={loading}
                 />
               </div>
