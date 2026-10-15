@@ -117,7 +117,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function ExpensesPage() {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-06-10');
+  const [selectedDate, setSelectedDate] = useState<string>(() => formatDateStr(new Date()));
   const [viewType, setViewType] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,20 +131,7 @@ export default function ExpensesPage() {
         if (!res.ok) throw new Error('API fetch error');
         const response = await res.json();
         setTransactions(response.data);
-        
-        // Default to maximum date in transactions if available
-        if (response.data.length > 0) {
-          const maxDate = response.data
-            .filter((t: CashTransaction) => {
-              if (t.type !== '출금') return false;
-              const isInternalTransfer = 
-                t.category?.trim() === '계좌대체' || 
-                (t.client && t.client.includes('영화포장') && (t.client.includes('계좌') || t.client.includes('으로') || t.client.includes('로')));
-              return !isInternalTransfer;
-            })
-            .reduce((max: string, t: CashTransaction) => t.date > max ? t.date : max, '2026-06-10');
-          setSelectedDate(maxDate);
-        }
+        // 기본 조회일은 오늘 날짜로 유지 (최근 거래일로 덮어쓰지 않음)
       } catch (err) {
         console.error(err);
         setError('지출 내역 데이터를 불러오는 데 실패했습니다.');
