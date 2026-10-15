@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  getAllIssueClients, 
+  syncIssueClientsAndGetAll,
   addOrUpdateIssueClient, 
   toggleIssueClientStatus 
 } from '@/lib/issueClients';
@@ -11,29 +11,25 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     // Auto-sync remarks with isAutoSync: true to preserve existing status & history
+    let items: { client: string; remarks: string; amount?: number; dueDate?: string; actualDate?: string }[] = [];
     try {
       const expRes = await fetchExpectedCollections();
       if (expRes.data && expRes.data.length > 0) {
-        expRes.data.forEach(item => {
-          if (item.client && item.client.trim() && item.remarks && item.remarks.trim()) {
-            addOrUpdateIssueClient(
-              item.client.trim(), 
-              item.remarks.trim(), 
-              {
-                amount: item.amount,
-                dueDate: item.dueDate,
-                actualDate: item.actualDate
-              },
-              { isAutoSync: true }
-            );
-          }
-        });
+        items = expRes.data
+          .filter(item => item.client && item.client.trim() && item.remarks && item.remarks.trim())
+          .map(item => ({
+            client: item.client.trim(),
+            remarks: item.remarks!.trim(),
+            amount: item.amount,
+            dueDate: item.dueDate,
+            actualDate: item.actualDate
+          }));
       }
     } catch (syncErr) {
       console.warn('Syncing expected collections remarks warning:', syncErr);
     }
 
-    const clients = getAllIssueClients();
+    const clients = await syncIssueClientsAndGetAll(items);
     return NextResponse.json({ success: true, data: clients });
   } catch (error) {
     console.error('Error fetching issue clients:', error);
@@ -54,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'remarks is required' }, { status: 400 });
     }
 
-    const updatedRecord = addOrUpdateIssueClient(client, remarks, {
+    const updatedRecord = await addOrUpdateIssueClient(client, remarks, {
       amount: amount ? Number(amount) : undefined,
       dueDate,
       actualDate
@@ -76,7 +72,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Valid client and status (ACTIVE or RESOLVED) are required' }, { status: 400 });
     }
 
-    const updated = toggleIssueClientStatus(client, status);
+    const updated = await toggleIssueClientStatus(client, status);
     if (!updated) {
       return NextResponse.json({ error: 'Issue client not found' }, { status: 404 });
     }

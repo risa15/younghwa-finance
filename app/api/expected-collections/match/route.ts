@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Auto record to issue clients watchlist if client name and non-empty remarks exist
     if (client && typeof client === 'string' && client.trim() && remarks && typeof remarks === 'string' && remarks.trim()) {
       try {
-        addOrUpdateIssueClient(client.trim(), remarks.trim(), {
+        await addOrUpdateIssueClient(client.trim(), remarks.trim(), {
           amount: parsedAmount,
           dueDate,
           actualDate
