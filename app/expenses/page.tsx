@@ -6,7 +6,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   ListFilter,
-  Receipt
+  Receipt,
+  X
 } from 'lucide-react';
 import { CashTransaction } from '@/lib/types';
 import { formatKoreanShorthand } from '@/components/KPICard';
@@ -122,6 +123,12 @@ export default function ExpensesPage() {
   const [viewType, setViewType] = useState<'daily' | 'monthly'>('daily');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  // 선택된 분류 (null = 전체). 날짜/보기 전환 시에도 유지됨
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const toggleCategory = (name: string | null) => {
+    setSelectedCategory(prev => (prev === name ? null : name));
+  };
 
   // Fetch transactions
   useEffect(() => {
@@ -202,6 +209,19 @@ export default function ExpensesPage() {
       }))
       .sort((a, b) => b.amount - a.amount);
   }, [classifiedExpenses, totalAmount]);
+
+  // Details filtered by selected category
+  const displayedExpenses = useMemo(() => {
+    if (!selectedCategory) return classifiedExpenses;
+    return classifiedExpenses.filter(e => e.category === selectedCategory);
+  }, [classifiedExpenses, selectedCategory]);
+
+  const displayedAmount = useMemo(
+    () => displayedExpenses.reduce((sum, e) => sum + e.amount, 0),
+    [displayedExpenses]
+  );
+
+  const selectedColor = selectedCategory ? (CATEGORY_COLORS[selectedCategory] || '#64748b') : undefined;
 
   // Date handlers
   const adjustDate = (offset: number) => {
@@ -342,8 +362,41 @@ export default function ExpensesPage() {
               </thead>
               <tbody className="text-xs divide-y divide-slate-100">
                 {categorySummaryData.length > 0 ? (
-                  categorySummaryData.map((cat) => (
-                    <tr key={cat.name} className="hover:bg-slate-50/50 transition-colors">
+                  <>
+                  <tr
+                    onClick={() => setSelectedCategory(null)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedCategory === null ? 'bg-slate-100/70' : 'hover:bg-slate-50 opacity-60 hover:opacity-100'
+                    }`}
+                    style={{ boxShadow: selectedCategory === null ? 'inset 3px 0 0 #334155' : undefined }}
+                  >
+                    <td className="px-4 py-2.5" colSpan={2}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-slate-700" />
+                        <span className="font-bold text-slate-800 text-xs">전체</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 text-center font-mono text-slate-500 text-[11px]">
+                      {classifiedExpenses.length}건
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-extrabold text-slate-900 text-xs">
+                      {totalAmount.toLocaleString('ko-KR')} <span className="text-[10px] text-slate-400 font-normal">원</span>
+                    </td>
+                  </tr>
+                  {categorySummaryData.map((cat) => {
+                    const color = CATEGORY_COLORS[cat.name] || '#64748b';
+                    const isSelected = selectedCategory === cat.name;
+                    const isDimmed = selectedCategory !== null && !isSelected;
+                    return (
+                    <tr
+                      key={cat.name}
+                      onClick={() => toggleCategory(cat.name)}
+                      title={isSelected ? '다시 클릭하면 전체 보기' : `${cat.name} 내역만 보기`}
+                      className={`cursor-pointer transition-all ${
+                        isSelected ? '' : 'hover:bg-slate-50'
+                      } ${isDimmed ? 'opacity-50 hover:opacity-100' : ''}`}
+                      style={isSelected ? { backgroundColor: `${color}12`, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span 
@@ -376,7 +429,9 @@ export default function ExpensesPage() {
                         {cat.amount.toLocaleString('ko-KR')} <span className="text-[10px] text-slate-400 font-normal">원</span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })}
+                  </>
                 ) : (
                   <tr>
                     <td className="px-4 py-8 text-center text-slate-400 text-xs font-medium" colSpan={4}>
@@ -411,8 +466,25 @@ export default function ExpensesPage() {
                 <Receipt className="w-4 h-4 text-slate-600" />
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">상세 출금 내역 표</h3>
                 <span className="text-[10px] font-bold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-full font-mono ml-1">
-                  총 {classifiedExpenses.length}건
+                  총 {displayedExpenses.length}건
                 </span>
+                {selectedCategory && (
+                  <span
+                    className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full text-[10px] font-bold ml-1"
+                    style={{ backgroundColor: `${selectedColor}15`, color: selectedColor, border: `1px solid ${selectedColor}40` }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: selectedColor }} />
+                    {selectedCategory}
+                    <button
+                      onClick={() => setSelectedCategory(null)}
+                      className="rounded-full p-0.5 hover:bg-black/10 transition-colors"
+                      title="필터 해제 (전체 보기)"
+                      aria-label="필터 해제"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
               </div>
               <div className="text-[10px] text-slate-400 font-semibold font-mono">
                 조회 대상 기간: <span className="text-slate-700 font-bold">
@@ -433,8 +505,8 @@ export default function ExpensesPage() {
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {classifiedExpenses.length > 0 ? (
-                    classifiedExpenses.map((exp, idx) => (
+                  {displayedExpenses.length > 0 ? (
+                    displayedExpenses.map((exp, idx) => (
                       <tr key={`${exp.client}-${exp.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
                         <td className="px-6 py-3.5 font-mono text-slate-500">{exp.date}</td>
                         <td className="px-6 py-3.5">
@@ -459,7 +531,9 @@ export default function ExpensesPage() {
                   ) : (
                     <tr>
                       <td className="px-6 py-8 text-center text-slate-400 font-medium" colSpan={5}>
-                        지정된 일자에 등록된 지출(출금) 내역이 없습니다.
+                        {selectedCategory
+                          ? `조회 기간에 '${selectedCategory}' 분류의 지출 내역이 없습니다.`
+                          : '지정된 일자에 등록된 지출(출금) 내역이 없습니다.'}
                       </td>
                     </tr>
                   )}
@@ -471,15 +545,24 @@ export default function ExpensesPage() {
           {/* Table Footer Sum */}
           <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              {selectedCategory ? `${selectedCategory} ` : ''}
               {viewType === 'daily' ? '일 지출 합계' : '월 누적 지출 합계'}
+              {selectedCategory && totalAmount > 0 && (
+                <span className="ml-2 text-[10px] font-semibold text-slate-400 normal-case">
+                  (전체 지출의 {((displayedAmount / totalAmount) * 100).toFixed(1)}%)
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-400 font-mono">
-                ({formatKoreanShorthand(totalAmount)})
+                ({formatKoreanShorthand(displayedAmount)})
               </span>
               <div className="flex items-baseline gap-1">
-                <span className="text-lg font-mono font-black text-brand-rose tracking-tight">
-                  {totalAmount.toLocaleString('ko-KR')}
+                <span
+                  className="text-lg font-mono font-black text-brand-rose tracking-tight"
+                  style={selectedColor ? { color: selectedColor } : undefined}
+                >
+                  {displayedAmount.toLocaleString('ko-KR')}
                 </span>
                 <span className="text-[10px] font-bold text-slate-500">원</span>
               </div>
