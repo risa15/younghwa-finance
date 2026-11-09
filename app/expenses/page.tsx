@@ -221,6 +221,46 @@ export default function ExpensesPage() {
     [displayedExpenses]
   );
 
+  // 상세 출금 내역 정렬 (날짜 / 거래처 가나다 / 금액)
+  const [sortKey, setSortKey] = useState<'date' | 'client' | 'amount'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: 'date' | 'client' | 'amount') => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // 금액은 큰 금액부터, 나머지는 오름차순(가나다/과거→최근)으로 시작
+      setSortDir(key === 'amount' ? 'desc' : 'asc');
+    }
+  };
+
+  const sortedExpenses = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...displayedExpenses].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'amount') cmp = a.amount - b.amount;
+      else if (sortKey === 'client') cmp = (a.client || '').localeCompare(b.client || '', 'ko');
+      else cmp = a.date.localeCompare(b.date);
+      return cmp * dir;
+    });
+  }, [displayedExpenses, sortKey, sortDir]);
+
+  const renderSortHeader = (key: 'date' | 'client' | 'amount', label: string, alignRight = false) => {
+    const active = sortKey === key;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(key)}
+        className={`inline-flex items-center gap-1 hover:text-slate-700 transition-colors ${alignRight ? 'flex-row-reverse' : ''} ${active ? 'text-slate-700' : ''}`}
+        title={`${label} 기준 정렬`}
+      >
+        {label}
+        <span className="text-[9px]">{active ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    );
+  };
+
   const selectedColor = selectedCategory ? (CATEGORY_COLORS[selectedCategory] || '#64748b') : undefined;
 
   // Date handlers
@@ -497,16 +537,16 @@ export default function ExpensesPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] font-bold text-slate-400 tracking-wider">
-                    <th className="px-6 py-3">날짜</th>
+                    <th className="px-6 py-3">{renderSortHeader('date', '날짜')}</th>
                     <th className="px-6 py-3">분류</th>
-                    <th className="px-6 py-3">거래처</th>
+                    <th className="px-6 py-3">{renderSortHeader('client', '거래처')}</th>
                     <th className="px-6 py-3">적요/메모</th>
-                    <th className="px-6 py-3 text-right">금액</th>
+                    <th className="px-6 py-3 text-right">{renderSortHeader('amount', '금액', true)}</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
-                  {displayedExpenses.length > 0 ? (
-                    displayedExpenses.map((exp, idx) => (
+                  {sortedExpenses.length > 0 ? (
+                    sortedExpenses.map((exp, idx) => (
                       <tr key={`${exp.client}-${exp.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors duration-150">
                         <td className="px-6 py-3.5 font-mono text-slate-500">{exp.date}</td>
                         <td className="px-6 py-3.5">
