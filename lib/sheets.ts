@@ -521,6 +521,39 @@ export async function updateExpectedCollection(
   }
 }
 
+// Delete (clear) expected collection rows. Rows are cleared instead of removed
+// so that other rows' rowIndex values do not shift.
+export async function deleteExpectedCollections(
+  rowIndices: number[]
+): Promise<{ success: boolean; error?: string }> {
+  const valid = rowIndices.filter(r => Number.isInteger(r) && r > 1);
+  if (valid.length === 0) return { success: false, error: 'No valid rowIndex' };
+
+  const sheets = getSheetsClient();
+  if (!sheets || !SPREADSHEET_ID) {
+    console.log(`[DEMO MODE] Clearing expected collections at rows ${valid.join(', ')}`);
+    for (const r of valid) {
+      const mockIdx = r - 2;
+      if (mockIdx >= 0 && mockIdx < MOCK_EXPECTED_COLLECTIONS.length) {
+        (MOCK_EXPECTED_COLLECTIONS[mockIdx] as any).client = '';
+      }
+    }
+    return { success: true };
+  }
+
+  try {
+    await sheets.spreadsheets.values.batchClear({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { ranges: valid.map(r => `수금예정!A${r}:G${r}`) }
+    });
+    console.log(`Google Sheets cleared 수금예정 rows: ${valid.join(', ')}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Google Sheets deleteExpectedCollections failed:', err);
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
 // Helper to parse YYYY-MM-DD to Date object
 function parseDateStr(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);

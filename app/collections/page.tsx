@@ -339,6 +339,54 @@ export default function CollectionsPage() {
     }
   };
 
+  // Delete expected collection rows (used for small-amount overdue cleanup)
+  const deleteExpectedRows = async (rowIndices: number[]) => {
+    try {
+      setExpectedLoading(true);
+      const response = await fetch('/api/expected-collections/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndices })
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '삭제 중 오류가 발생했습니다.');
+      }
+      alert(`${rowIndices.length}건이 삭제되었습니다.`);
+      fetchExpectedData();
+    } catch (err: any) {
+      alert(err.message || '삭제에 실패했습니다.');
+    } finally {
+      setExpectedLoading(false);
+    }
+  };
+
+  // Delete a single overdue row
+  const handleDeleteOne = async (rowIndex: number, clientName: string, amount: number) => {
+    if (!window.confirm(`[${clientName}] ${amount.toLocaleString()}원 연체 건을 삭제하시겠습니까?\n(수금예정 시트에서 해당 행이 지워집니다)`)) return;
+    await deleteExpectedRows([rowIndex]);
+  };
+
+  // Bulk delete small-amount overdue rows under a threshold
+  const handleDeleteSmallOverdue = async () => {
+    const input = window.prompt('얼마 미만의 소액 연체 건을 삭제할까요? (원)', '1000');
+    if (input === null) return;
+    const threshold = parseInt(input.replace(/,/g, ''), 10);
+    if (isNaN(threshold) || threshold <= 0) {
+      alert('올바른 금액(숫자)을 입력해주세요.');
+      return;
+    }
+    const targets = overdueItems.filter(c => Math.abs(c.amount) < threshold);
+    if (targets.length === 0) {
+      alert(`${threshold.toLocaleString()}원 미만의 연체 건이 없습니다.`);
+      return;
+    }
+    const preview = targets.slice(0, 15).map(c => `· ${c.client} ${c.amount.toLocaleString()}원 (${c.dueDate})`).join('\n');
+    const more = targets.length > 15 ? `\n... 외 ${targets.length - 15}건` : '';
+    if (!window.confirm(`${threshold.toLocaleString()}원 미만 연체 ${targets.length}건을 삭제합니다.\n\n${preview}${more}\n\n계속하시겠습니까?`)) return;
+    await deleteExpectedRows(targets.map(c => c.rowIndex));
+  };
+
   // Handle toggling issue client status (ACTIVE <-> RESOLVED)
   const handleToggleIssueStatus = async (clientName: string, currentStatus: string) => {
     const cleanName = clientName.trim();
@@ -1054,6 +1102,14 @@ export default function CollectionsPage() {
                   🚨 연체건만 보기
                 </button>
                 <button
+                  onClick={handleDeleteSmallOverdue}
+                  disabled={expectedLoading}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg border bg-white hover:bg-slate-50 text-slate-600 border-slate-200 transition-all shadow-sm disabled:opacity-50"
+                  title="몇십원·몇백원 등 소액 연체 건을 일괄 삭제합니다."
+                >
+                  🧹 소액 연체 일괄 삭제
+                </button>
+                <button
                   onClick={() => handleDownloadCSV(true)}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-lg transition-all shadow-sm"
                   title="연체된 거래처 목록을 엑셀(CSV) 파일로 다운로드합니다."
@@ -1397,6 +1453,15 @@ export default function CollectionsPage() {
                                 >
                                   예정일 변경
                                 </button>
+                                {(col.status === '연체' || col.overdueMonths >= 1) && Math.abs(col.amount) < 10000 && (
+                                  <button
+                                    onClick={() => handleDeleteOne(col.rowIndex, col.client, col.amount)}
+                                    className="px-2 py-1 rounded bg-slate-100 hover:bg-rose-600 hover:text-white hover:border-rose-600 border border-slate-200 text-slate-600 font-bold text-[10px] transition-all duration-200 active:scale-95 whitespace-nowrap shadow-sm"
+                                    title="소액 연체 건 삭제"
+                                  >
+                                    삭제
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>
